@@ -1,0 +1,312 @@
+{
+	"info": {
+		"name": "payment-orchestrator",
+		"description": "Payment Orchestrator API Collection - Health and Payment endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/health",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"health"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Intent",
+			"item": [
+				{
+					"name": "Create Payment Intent - Minimal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transactionId\": \"txn_1234567890\",\n  \"amount\": 1000.50,\n  \"paymentMethod\": \"UPI\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/v1/payment-intents",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"payment-intents"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment Intent - Full",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transactionId\": \"txn_1234567890\",\n  \"amount\": 1000.50,\n  \"paymentMethod\": \"UPI\",\n  \"currency\": \"INR\",\n  \"userIdentifier\": \"user_12345\",\n  \"customerData\": {\n    \"name\": \"John Doe\",\n    \"email\": \"john@example.com\"\n  },\n  \"cardData\": {\n    \"cardNumber\": \"4111111111111111\",\n    \"cvv\": \"123\",\n    \"expiryMonth\": \"12\",\n    \"expiryYear\": \"2025\"\n  },\n  \"paymentGateway\": \"RAZORPAY\",\n  \"additionalAttributes\": {\n    \"orderId\": \"order_123\",\n    \"metadata\": \"custom_data\"\n  }\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/v1/payment-intents",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"payment-intents"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payout",
+			"item": [
+				{
+					"name": "Make Payout - Minimal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transactionId\": \"payout_txn_1234567890\",\n  \"amount\": 5000.00,\n  \"paymentMethod\": \"UPI\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/v1/payouts",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"payouts"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Make Payout - Full",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transactionId\": \"payout_txn_1234567890\",\n  \"amount\": 5000.00,\n  \"paymentMethod\": \"UPI\",\n  \"currency\": \"INR\",\n  \"userIdentifier\": \"user_12345\",\n  \"customerData\": {\n    \"name\": \"Jane Doe\",\n    \"email\": \"jane@example.com\"\n  },\n  \"beneficiaryDetails\": {\n    \"upiId\": \"beneficiary@upi\",\n    \"bankAccount\": \"1234567890\",\n    \"ifsc\": \"SBIN0001234\"\n  },\n  \"paymentGateway\": \"CASHFREE\",\n  \"additionalAttributes\": {\n    \"purpose\": \"salary\",\n    \"reference\": \"ref_123\"\n  }\n}"
+						},
+						"url": {
+							"raw": "http://localhost:3000/v1/payouts",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"payouts"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Transaction",
+			"item": [
+				{
+					"name": "Fetch Transaction Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/v1/transactions/:transactionId",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"transactions",
+								":transactionId"
+							],
+							"variable": [
+								{
+									"key": "transactionId",
+									"value": "txn_1234567890",
+									"type": "string"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Transactions by User - Minimal",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/v1/transactions?userIdentifier=user_12345",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"transactions"
+							],
+							"query": [
+								{
+									"key": "userIdentifier",
+									"value": "user_12345"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Transactions by User - With Filters",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/v1/transactions?userIdentifier=user_12345&paymentFlowType=PAYIN&status=COMPLETED&operationType=CHARGE&paymentMethod=UPI&minAmount=100&maxAmount=5000&sortBy=createdAt&sortOrder=DESC&pageSize=20",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"v1",
+								"transactions"
+							],
+							"query": [
+								{
+									"key": "userIdentifier",
+									"value": "user_12345"
+								},
+								{
+									"key": "paymentFlowType",
+									"value": "PAYIN",
+									"disabled": true
+								},
+								{
+									"key": "status",
+									"value": "COMPLETED",
+									"disabled": true
+								},
+								{
+									"key": "operationType",
+									"value": "CHARGE",
+									"disabled": true
+								},
+								{
+									"key": "paymentMethod",
+									"value": "UPI",
+									"disabled": true
+								},
+								{
+									"key": "minAmount",
+									"value": "100",
+									"disabled": true
+								},
+								{
+									"key": "maxAmount",
+									"value": "5000",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "2024-01-01T00:00:00Z",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "2024-12-31T23:59:59Z",
+									"disabled": true
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt",
+									"disabled": true
+								},
+								{
+									"key": "sortOrder",
+									"value": "DESC",
+									"disabled": true
+								},
+								{
+									"key": "pageSize",
+									"value": "20",
+									"disabled": true
+								},
+								{
+									"key": "pageToken",
+									"value": "next_page_token",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		}
+	]
+}
+
