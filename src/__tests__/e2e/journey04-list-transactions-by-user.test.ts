@@ -55,10 +55,8 @@ describe("Journey 04: List Transactions by User", () => {
 
         const listResult = await listResponse.json();
 
-        expect(listResult).toMatchObject({
-            transactions: expect.any(Array),
-            pageSize: 20,
-        });
+        expect(Array.isArray(listResult.transactions)).toBe(true);
+        expect(listResult.pageSize).toBe(20);
 
         expect(listResult.transactions.length).toBeGreaterThanOrEqual(2);
         expect(listResult.transactions[0]).toMatchObject({

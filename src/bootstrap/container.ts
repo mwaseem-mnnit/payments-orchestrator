@@ -15,6 +15,8 @@ export class ApplicationContainer {
     readonly makePayoutService: MakePayoutService;
     readonly fetchTransactionStatusService: FetchTransactionStatusService;
     readonly listTransactionsByUserService: ListTransactionsByUserService;
+    readonly clock: SystemClock;
+    readonly idGenerator: UlidIdGenerator;
 
     private readonly paymentIntentRepository: InMemoryPaymentIntentRepository;
     private readonly idempotencyStore: InMemoryIdempotencyStore;
@@ -23,8 +25,8 @@ export class ApplicationContainer {
 
     constructor() {
         // System Adapters
-        const clock = new SystemClock();
-        const idGenerator = new UlidIdGenerator();
+        this.clock = new SystemClock();
+        this.idGenerator = new UlidIdGenerator();
 
         // In-Memory Adapters
         this.paymentIntentRepository = new InMemoryPaymentIntentRepository();
@@ -40,8 +42,8 @@ export class ApplicationContainer {
             gatewayRouting,
             this.paymentGateway,
             this.eventPublisher,
-            clock,
-            idGenerator
+            this.clock,
+            this.idGenerator
         );
 
         this.makePayoutService = new MakePayoutService(
@@ -50,12 +52,12 @@ export class ApplicationContainer {
             gatewayRouting,
             this.paymentGateway,
             this.eventPublisher,
-            clock,
-            idGenerator
+            this.clock,
+            this.idGenerator
         );
 
         this.fetchTransactionStatusService = new FetchTransactionStatusService(
-            paymentIntentRepository
+            this.paymentIntentRepository
         );
 
         this.listTransactionsByUserService = new ListTransactionsByUserService(

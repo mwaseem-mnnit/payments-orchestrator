@@ -11,3 +11,5 @@ coverage/
 *.log
 .idea
 authority
+.github
+docs/

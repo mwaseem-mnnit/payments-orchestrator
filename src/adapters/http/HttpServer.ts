@@ -6,6 +6,8 @@ import { CreatePaymentIntentService } from "../../application/services/CreatePay
 import { MakePayoutService } from "../../application/services/MakePayoutService";
 import { FetchTransactionStatusService } from "../../application/services/FetchTransactionStatusService";
 import { ListTransactionsByUserService } from "../../application/services/ListTransactionsByUserService";
+import { Clock } from "../../application/port/Clock";
+import { IdGenerator } from "../../application/port/IdGenerator";
 
 export class HttpServer {
     private readonly fastify: FastifyInstance;
@@ -17,13 +19,18 @@ export class HttpServer {
         createPaymentIntentService: CreatePaymentIntentService,
         makePayoutService: MakePayoutService,
         fetchTransactionStatusService: FetchTransactionStatusService,
-        listTransactionsByUserService: ListTransactionsByUserService
+        listTransactionsByUserService: ListTransactionsByUserService,
+        clock: Clock,
+        idGenerator: IdGenerator
     ) {
         this.fastify = Fastify({
             logger: true,
         });
 
-        this.requestContextMiddleware = new RequestContextMiddleware();
+        this.requestContextMiddleware = new RequestContextMiddleware(
+            clock,
+            idGenerator
+        );
         this.paymentsController = new PaymentsController(
             createPaymentIntentService,
             makePayoutService,

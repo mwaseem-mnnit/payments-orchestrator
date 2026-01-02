@@ -1,14 +1,20 @@
 import { AsyncLocalStorage } from "async_hooks";
 import { FastifyRequest, FastifyReply } from "fastify";
-import { randomUUID } from "crypto";
+import { Clock } from "../../../application/port/Clock";
+import { IdGenerator } from "../../../application/port/IdGenerator";
 
-interface RequestContext {
+export interface RequestContext {
     correlationId: string;
     requestStartTime: Date;
 }
 
 export class RequestContextMiddleware {
     private readonly asyncLocalStorage = new AsyncLocalStorage<RequestContext>();
+
+    constructor(
+        private readonly clock: Clock,
+        private readonly idGenerator: IdGenerator
+    ) {}
 
     getContext(): RequestContext | undefined {
         return this.asyncLocalStorage.getStore();
@@ -19,14 +25,14 @@ export class RequestContextMiddleware {
             request: FastifyRequest,
             _reply: FastifyReply
         ): Promise<void> => {
-            const correlationId =
-                (request.headers["x-correlation-id"] as string) ||
-                request.id ||
-                randomUUID();
+            const headerCorrelationId = request.headers["x-correlation-id"] as
+                | string
+                | undefined;
+            const correlationId = headerCorrelationId || this.idGenerator.generate();
 
             const context: RequestContext = {
                 correlationId,
-                requestStartTime: new Date(),
+                requestStartTime: this.clock.now(),
             };
 
             this.asyncLocalStorage.enterWith(context);

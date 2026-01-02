@@ -14,7 +14,9 @@ export class TestServer {
             this.container.createPaymentIntentService,
             this.container.makePayoutService,
             this.container.fetchTransactionStatusService,
-            this.container.listTransactionsByUserService
+            this.container.listTransactionsByUserService,
+            this.container.clock,
+            this.container.idGenerator
         );
         this.baseUrl = `http://localhost:${port}`;
     }

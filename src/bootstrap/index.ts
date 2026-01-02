@@ -10,7 +10,9 @@ const httpServer = new HttpServer(
     container.createPaymentIntentService,
     container.makePayoutService,
     container.fetchTransactionStatusService,
-    container.listTransactionsByUserService
+    container.listTransactionsByUserService,
+    container.clock,
+    container.idGenerator
 );
 
 async function start() {
