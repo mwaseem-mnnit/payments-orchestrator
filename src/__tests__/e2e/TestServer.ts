@@ -1,5 +1,5 @@
-import { ApplicationContainer } from "../../bootstrap/container";
-import { HttpServer } from "../../adapters/http/HttpServer";
+import {ApplicationContainer} from "../../bootstrap/container";
+import {HttpServer} from "../../adapters/http/HttpServer";
 
 export class TestServer {
     private readonly container: ApplicationContainer;
@@ -11,7 +11,7 @@ export class TestServer {
         this.port = port;
         this.container = new ApplicationContainer();
         this.httpServer = new HttpServer(
-            this.container.createPaymentIntentService,
+            this.container.payinService,
             this.container.makePayoutService,
             this.container.fetchTransactionStatusService,
             this.container.listTransactionsByUserService,

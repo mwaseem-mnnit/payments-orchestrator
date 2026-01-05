@@ -1,36 +1,39 @@
-import { FastifyRequest, FastifyReply } from "fastify";
-import { CreatePaymentIntentService } from "../../../application/services/CreatePaymentIntentService";
-import { MakePayoutService } from "../../../application/services/MakePayoutService";
-import { FetchTransactionStatusService } from "../../../application/services/FetchTransactionStatusService";
-import { ListTransactionsByUserService } from "../../../application/services/ListTransactionsByUserService";
-import { CreatePaymentIntentCommand } from "../../../application/commands/CreatePaymentIntentCommand";
-import { MakePayoutCommand } from "../../../application/commands/MakePayoutCommand";
-import { FetchTransactionStatusCommand } from "../../../application/commands/FetchTransactionStatusCommand";
-import { ListTransactionsByUserCommand } from "../../../application/commands/ListTransactionsByUserCommand";
-import { PaymentMethod } from "../../../domain/payment_intent/PaymentMethod";
-import { PaymentFlowType, OperationType, PaymentIntentState } from "../../../domain/payment_intent/PaymentIntent";
+import {FastifyReply, FastifyRequest} from "fastify";
+import {PayinService} from "../../../application/services/PayinService";
+import {PayoutService} from "../../../application/services/PayoutService";
+import {FetchTransactionStatusService} from "../../../application/services/FetchTransactionStatusService";
+import {ListTransactionsByUserService} from "../../../application/services/ListTransactionsByUserService";
+
+import {
+    CreatePayinCommand,
+    CreatePayoutCommand,
+    PaymentMethodInput
+} from "../../../application/commands/PaymentCommand";
+import {FetchTransactionStatusCommand} from "../../../application/commands/FetchTransactionStatusCommand";
+import {ListTransactionsByUserCommand} from "../../../application/commands/ListTransactionsByUserCommand";
+import {OperationType, PaymentFlow, PaymentIntentState} from "../../../domain/payment_intent/PaymentIntent";
 
 interface CreatePaymentIntentRequestBody {
     transactionId: string;
     amount: number;
-    paymentMethod: string;
-    currency?: string;
     userIdentifier?: string;
-    customerData?: Record<string, any>;
-    cardData?: Record<string, any>;
-    paymentGateway?: string;
+    currency?: string;
+    paymentMethodId?: string;
+    paymentMethodInput?: PaymentMethodInput;
+    preferredGateway?: string;
+    gatewayContext?: Record<string, unknown>;
     additionalAttributes?: Record<string, any>;
 }
 
 interface MakePayoutRequestBody {
     transactionId: string;
     amount: number;
-    paymentMethod: string;
-    currency?: string;
     userIdentifier?: string;
-    customerData?: Record<string, any>;
-    beneficiaryDetails?: Record<string, any>;
-    paymentGateway?: string;
+    currency?: string;
+    paymentMethodId?: string;
+    paymentMethodInput?: PaymentMethodInput;
+    preferredGateway?: string;
+    gatewayContext?: Record<string, unknown>;
     additionalAttributes?: Record<string, any>;
 }
 
@@ -56,8 +59,8 @@ interface ListTransactionsByUserRequestQuery {
 
 export class PaymentsController {
     constructor(
-        private readonly createPaymentIntentService: CreatePaymentIntentService,
-        private readonly makePayoutService: MakePayoutService,
+        private readonly payinService: PayinService,
+        private readonly makePayoutService: PayoutService,
         private readonly fetchTransactionStatusService: FetchTransactionStatusService,
         private readonly listTransactionsByUserService: ListTransactionsByUserService
     ) {}
@@ -69,19 +72,24 @@ export class PaymentsController {
         reply: FastifyReply
     ): Promise<void> {
         const body = request.body;
-        const command = new CreatePaymentIntentCommand(
+        
+        if (!body.userIdentifier) {
+            await reply.code(400).send({ error: "userIdentifier is required" });
+            return;
+        }
+
+        const command = new CreatePayinCommand(
             body.transactionId,
             body.amount,
-            body.paymentMethod as PaymentMethod,
-            body.currency,
             body.userIdentifier,
-            body.customerData,
-            body.cardData,
-            body.paymentGateway,
+            body.currency,
+            body.paymentMethodId,
+            body.paymentMethodInput,
+            body.preferredGateway,
             body.additionalAttributes
         );
 
-        const result = await this.createPaymentIntentService.execute(command);
+        const result = await this.payinService.execute(command);
 
         await reply.code(200).send(result);
     }
@@ -93,15 +101,20 @@ export class PaymentsController {
         reply: FastifyReply
     ): Promise<void> {
         const body = request.body;
-        const command = new MakePayoutCommand(
+        
+        if (!body.userIdentifier) {
+            await reply.code(400).send({ error: "userIdentifier is required" });
+            return;
+        }
+
+        const command = new CreatePayoutCommand(
             body.transactionId,
             body.amount,
-            body.paymentMethod as PaymentMethod,
-            body.currency,
             body.userIdentifier,
-            body.customerData,
-            body.beneficiaryDetails,
-            body.paymentGateway,
+            body.currency,
+            body.paymentMethodId,
+            body.paymentMethodInput,
+            body.preferredGateway,
             body.additionalAttributes
         );
 
@@ -145,7 +158,7 @@ export class PaymentsController {
 
         const command = new ListTransactionsByUserCommand(
             query.userIdentifier,
-            query.paymentFlowType as PaymentFlowType | undefined,
+            query.paymentFlowType as PaymentFlow | undefined,
             query.status as PaymentIntentState | undefined,
             query.operationType as OperationType | undefined,
             query.paymentMethod,
@@ -163,5 +176,6 @@ export class PaymentsController {
 
         await reply.code(200).send(result);
     }
+
 }
 

@@ -1,7 +1,5 @@
-import { PaymentMethod } from "./PaymentMethod";
-
-export type PaymentFlowType = "PAYIN" | "PAYOUT";
-export type OperationType = "CHARGE" | "AUTHORIZE" | "CAPTURE" | "VOID" | "PAYOUT";
+export type PaymentFlow = "PAYIN" | "PAYOUT" | "REFUND";
+export type OperationType = "CHARGE" | "AUTHORIZE" | "CAPTURE" | "VOID" | "PAYOUT" | "REFUND";
 export type PaymentIntentState =
     | "CREATED"
     | "GATEWAY_SELECTED"
@@ -26,7 +24,7 @@ export type FailureCategory =
 export class PaymentIntent {
     constructor(
         public readonly paymentIntentId: string,
-        public readonly paymentFlowType: PaymentFlowType,
+        public readonly paymentFlowType: PaymentFlow,
         public readonly operationType: OperationType,
         public readonly amount: number,
         public readonly currency: string,
@@ -34,7 +32,7 @@ export class PaymentIntent {
         public readonly createdAt: Date,
         public readonly updatedAt: Date,
         public readonly transactionId: string,
-        public readonly paymentMethod: PaymentMethod,
+        public readonly paymentMethodId: string,
         public readonly gateway?: string,
         public readonly gatewayTransactionReference?: string,
         public readonly payerReference?: string,
@@ -55,7 +53,7 @@ export class PaymentIntent {
             this.createdAt,
             new Date(),
             this.transactionId,
-            this.paymentMethod,
+            this.paymentMethodId,
             this.gateway,
             this.gatewayTransactionReference,
             this.payerReference,
@@ -77,7 +75,7 @@ export class PaymentIntent {
             this.createdAt,
             new Date(),
             this.transactionId,
-            this.paymentMethod,
+            this.paymentMethodId,
             gateway,
             this.gatewayTransactionReference,
             this.payerReference,
@@ -101,7 +99,7 @@ export class PaymentIntent {
             this.createdAt,
             new Date(),
             this.transactionId,
-            this.paymentMethod,
+            this.paymentMethodId,
             this.gateway,
             gatewayTransactionReference,
             this.payerReference,

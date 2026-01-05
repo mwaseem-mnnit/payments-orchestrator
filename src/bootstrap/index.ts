@@ -7,7 +7,7 @@ const host = process.env.HOST || "0.0.0.0";
 const container = new ApplicationContainer();
 
 const httpServer = new HttpServer(
-    container.createPaymentIntentService,
+    container.payinService,
     container.makePayoutService,
     container.fetchTransactionStatusService,
     container.listTransactionsByUserService,

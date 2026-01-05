@@ -2,8 +2,8 @@ import Fastify, { FastifyInstance } from "fastify";
 import { RequestContextMiddleware } from "./middleware/RequestContextMiddleware";
 import { PaymentsController } from "./controllers/PaymentsController";
 import { HealthController } from "./controllers/HealthController";
-import { CreatePaymentIntentService } from "../../application/services/CreatePaymentIntentService";
-import { MakePayoutService } from "../../application/services/MakePayoutService";
+import { PayinService } from "../../application/services/PayinService";
+import { PayoutService } from "../../application/services/PayoutService";
 import { FetchTransactionStatusService } from "../../application/services/FetchTransactionStatusService";
 import { ListTransactionsByUserService } from "../../application/services/ListTransactionsByUserService";
 import { Clock } from "../../application/port/Clock";
@@ -16,8 +16,8 @@ export class HttpServer {
     private readonly healthController: HealthController;
 
     constructor(
-        createPaymentIntentService: CreatePaymentIntentService,
-        makePayoutService: MakePayoutService,
+        payinService: PayinService,
+        payoutService: PayoutService,
         fetchTransactionStatusService: FetchTransactionStatusService,
         listTransactionsByUserService: ListTransactionsByUserService,
         clock: Clock,
@@ -32,8 +32,8 @@ export class HttpServer {
             idGenerator
         );
         this.paymentsController = new PaymentsController(
-            createPaymentIntentService,
-            makePayoutService,
+            payinService,
+            payoutService,
             fetchTransactionStatusService,
             listTransactionsByUserService
         );

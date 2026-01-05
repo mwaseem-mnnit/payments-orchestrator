@@ -1,10 +1,12 @@
-import {PaymentGatewayPort} from "../../application/port/PaymentGatewayPort";
-import {CreatePayinRequest} from "../../application/port/gateway/dto/CreatePayinRequest";
-import {CreatePayinResponse} from "../../application/port/gateway/dto/CreatePayinResponse";
-import {CreatePayoutRequest} from "../../application/port/gateway/dto/CreatePayoutRequest";
-import {CreatePayoutResponse} from "../../application/port/gateway/dto/CreatePayoutResponse";
-import {FetchPaymentStatusRequest} from "../../application/port/gateway/dto/FetchPaymentStatusRequest";
-import {FetchPaymentStatusResponse} from "../../application/port/gateway/dto/FetchPaymentStatusResponse";
+import {
+    CreatePayinRequest,
+    CreatePayinResponse,
+    CreatePayoutRequest,
+    CreatePayoutResponse,
+    FetchPaymentStatusRequest,
+    FetchPaymentStatusResponse,
+    PaymentGatewayPort
+} from "../../application/port/PaymentGatewayPort";
 
 interface GatewayTransactionState {
     gatewayTransactionReference: string;
@@ -32,10 +34,14 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
             status: initialStatus,
         });
 
-        return new CreatePayinResponse(gatewayTransactionReference, {
-            gatewayId,
-            status: initialStatus,
-        });
+        return new CreatePayinResponse(
+            gatewayTransactionReference,
+            undefined,
+            {
+                gatewayId,
+                status: initialStatus,
+            }
+        );
     }
 
     async createPayout(
@@ -52,10 +58,14 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
             status: initialStatus,
         });
 
-        return new CreatePayoutResponse(gatewayTransactionReference, {
-            gatewayId,
-            status: initialStatus,
-        });
+        return new CreatePayoutResponse(
+            gatewayTransactionReference,
+            undefined,
+            {
+                gatewayId,
+                status: initialStatus,
+            }
+        );
     }
 
     async fetchPaymentStatus(

@@ -1,14 +1,14 @@
 import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
-import {
-    PaginatedResult,
-    PaymentIntentRepository,
-    TransactionQuery,
-} from "../../application/port/PaymentIntentRepository";
+import {PaymentIntentRepository, TransactionQuery,} from "../../application/port/PaymentIntentRepository";
+import {PaymentMethodRepository} from "../../application/port/PaymentMethodRepository";
+import {PaginatedResult} from "../../application/shared/pagination/PaginatedResult";
 
 export class InMemoryPaymentIntentRepository
     implements PaymentIntentRepository {
     private readonly byTransactionId: Map<string, PaymentIntent> = new Map();
     private readonly allIntents: PaymentIntent[] = [];
+
+    constructor(private readonly paymentMethodRepository?: PaymentMethodRepository) {}
 
     async findByTransactionId(
         transactionId: string
@@ -19,7 +19,7 @@ export class InMemoryPaymentIntentRepository
     async findByUserIdentifier(
         query: TransactionQuery
     ): Promise<PaginatedResult<PaymentIntent>> {
-        // Filter by userIdentifier (check both payerReference and payeeReference)
+        // First filter by non-PaymentMethod criteria
         let filtered = this.allIntents.filter((intent) => {
             const userMatch =
                 intent.payerReference === query.userIdentifier ||
@@ -41,13 +41,6 @@ export class InMemoryPaymentIntentRepository
             if (
                 query.operationType &&
                 intent.operationType !== query.operationType
-            ) {
-                return false;
-            }
-
-            if (
-                query.paymentMethod &&
-                intent.paymentMethod !== query.paymentMethod
             ) {
                 return false;
             }
@@ -76,6 +69,64 @@ export class InMemoryPaymentIntentRepository
 
             return true;
         });
+
+        // Apply PaymentMethod filter if specified and repository is available
+        if (query.paymentMethod && this.paymentMethodRepository) {
+            const paymentMethodFilter = query.paymentMethod;
+            
+            // Resolve PaymentMethods for all filtered intents
+            const intentPaymentMethodPairs = await Promise.all(
+                filtered.map(async (intent) => {
+                    const paymentMethod = await this.paymentMethodRepository!.findById(
+                        intent.paymentMethodId
+                    );
+                    return { intent, paymentMethod };
+                })
+            );
+
+            // Filter by PaymentMethod criteria
+            filtered = intentPaymentMethodPairs
+                .filter(({ paymentMethod }) => {
+                    if (!paymentMethod) {
+                        return false;
+                    }
+
+                    // Filter by methodTypeId
+                    if (
+                        paymentMethodFilter.methodTypeId &&
+                        paymentMethod.methodTypeId !== paymentMethodFilter.methodTypeId
+                    ) {
+                        return false;
+                    }
+
+                    // Filter by variant
+                    if (
+                        paymentMethodFilter.variant !== undefined &&
+                        paymentMethod.variant !== paymentMethodFilter.variant
+                    ) {
+                        return false;
+                    }
+
+                    // Filter by normalizedValues (if any identifier matches)
+                    if (
+                        paymentMethodFilter.normalizedValues &&
+                        paymentMethodFilter.normalizedValues.length > 0
+                    ) {
+                        const intentNormalizedValues = paymentMethod.identifiers.map(
+                            (id) => id.normalizedValue
+                        );
+                        const hasMatchingNormalizedValue = paymentMethodFilter.normalizedValues.some(
+                            (filterValue) => intentNormalizedValues.includes(filterValue)
+                        );
+                        if (!hasMatchingNormalizedValue) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .map(({ intent }) => intent);
+        }
 
         // Sort
         const sortBy = query.sortBy || "createdAt";

@@ -1,11 +1,13 @@
-import { PaymentIntent } from "../../domain/payment_intent/PaymentIntent";
-import { FetchTransactionStatusCommand } from "../commands/FetchTransactionStatusCommand";
-import { FetchTransactionStatusResult } from "../results/FetchTransactionStatusResult";
-import { PaymentIntentRepository } from "../port/PaymentIntentRepository";
+import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
+import {FetchTransactionStatusCommand} from "../commands/FetchTransactionStatusCommand";
+import {FetchTransactionStatusResult} from "../results/FetchTransactionStatusResult";
+import {PaymentIntentRepository} from "../port/PaymentIntentRepository";
+import {PaymentMethodRepository} from "../port/PaymentMethodRepository";
 
 export class FetchTransactionStatusService {
     constructor(
-        private readonly paymentIntentRepository: PaymentIntentRepository
+        private readonly paymentIntentRepository: PaymentIntentRepository,
+        private readonly paymentMethodRepository: PaymentMethodRepository
     ) {}
 
     async execute(
@@ -28,10 +30,8 @@ export class FetchTransactionStatusService {
 
         // Step 3: Assemble Transaction Details
         // Step 4: Attach Stored Gateway Metadata
-        const result = this.assembleResponse(paymentIntent);
-
         // Step 5: Return Response
-        return result;
+        return await this.assembleResponse(paymentIntent);
     }
 
     private validateRequest(command: FetchTransactionStatusCommand): void {
@@ -40,9 +40,18 @@ export class FetchTransactionStatusService {
         }
     }
 
-    private assembleResponse(
+    private async assembleResponse(
         paymentIntent: PaymentIntent
-    ): FetchTransactionStatusResult {
+    ): Promise<FetchTransactionStatusResult> {
+        const paymentMethod = await this.paymentMethodRepository.findById(
+            paymentIntent.paymentMethodId
+        );
+        if (!paymentMethod) {
+            throw new Error(
+                `PaymentMethod not found for paymentMethodId: ${paymentIntent.paymentMethodId}`
+            );
+        }
+
         // Extract gateway metadata from additionalAttributes
         const gatewayMetadata = this.extractGatewayMetadata(
             paymentIntent.additionalAttributes
@@ -52,7 +61,7 @@ export class FetchTransactionStatusService {
             paymentIntent.transactionId,
             paymentIntent.paymentIntentId,
             paymentIntent.paymentFlowType,
-            paymentIntent.paymentMethod,
+            paymentMethod,
             paymentIntent.state,
             paymentIntent.amount,
             paymentIntent.currency,

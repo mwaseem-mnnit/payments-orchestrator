@@ -1,3 +1,5 @@
+import {OperationType, PaymentFlow} from "../payment_intent/PaymentIntent";
+
 export type EventSource = "SYSTEM" | "GATEWAY" | "RECONCILIATION" | "OPERATOR";
 
 export type EventType =
@@ -27,8 +29,8 @@ export class CanonicalEvent {
         public readonly eventSource: EventSource,
         public readonly eventTimestamp: Date,
         public readonly receivedAt: Date,
-        public readonly paymentFlowType?: string,
-        public readonly operationType?: string,
+        public readonly paymentFlowType?: PaymentFlow,
+        public readonly operationType?: OperationType,
         public readonly gateway?: string,
         public readonly gatewayTransactionReference?: string,
         public readonly success?: boolean,

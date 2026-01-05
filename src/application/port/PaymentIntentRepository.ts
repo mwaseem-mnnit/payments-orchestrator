@@ -4,15 +4,21 @@
  *   To change this template use File | Settings | File and Code Templates.
 */
 
-import { PaymentIntent } from "../../domain/payment_intent/PaymentIntent";
-import { PaymentFlowType, OperationType, PaymentIntentState } from "../../domain/payment_intent/PaymentIntent";
+import {OperationType, PaymentFlow, PaymentIntent, PaymentIntentState} from "../../domain/payment_intent/PaymentIntent";
+import {PaginatedResult} from "../shared/pagination/PaginatedResult";
+
+export interface PaymentMethodFilter {
+    methodTypeId?: string;
+    variant?: string;
+    normalizedValues?: string[];
+}
 
 export interface TransactionQuery {
     userIdentifier: string;
-    paymentFlowType?: PaymentFlowType;
+    paymentFlowType?: PaymentFlow;
     status?: PaymentIntentState;
     operationType?: OperationType;
-    paymentMethod?: string;
+    paymentMethod?: PaymentMethodFilter;
     minAmount?: number;
     maxAmount?: number;
     fromDate?: Date;
@@ -21,13 +27,6 @@ export interface TransactionQuery {
     sortOrder?: "ASC" | "DESC";
     pageSize: number;
     pageToken?: string;
-}
-
-export interface PaginatedResult<T> {
-    items: T[];
-    pageSize: number;
-    pageToken?: string;
-    nextPageToken?: string;
 }
 
 export interface PaymentIntentRepository {

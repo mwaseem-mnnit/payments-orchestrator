@@ -2,11 +2,13 @@ import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
 import {ListTransactionsByUserCommand} from "../commands/ListTransactionsByUserCommand";
 import {ListTransactionsByUserResult} from "../results/ListTransactionsByUserResult";
 import {FetchTransactionStatusResult} from "../results/FetchTransactionStatusResult";
-import {PaymentIntentRepository, TransactionQuery,} from "../port/PaymentIntentRepository";
+import {PaymentIntentRepository, PaymentMethodFilter, TransactionQuery} from "../port/PaymentIntentRepository";
+import {PaymentMethodRepository} from "../port/PaymentMethodRepository";
 
 export class ListTransactionsByUserService {
     constructor(
-        private readonly paymentIntentRepository: PaymentIntentRepository
+        private readonly paymentIntentRepository: PaymentIntentRepository,
+        private readonly paymentMethodRepository: PaymentMethodRepository
     ) {}
 
     async execute(
@@ -22,20 +24,20 @@ export class ListTransactionsByUserService {
 
         // Step 3: Assemble Transaction Responses
         // Reuse the same assembly logic as Journey 03
-        const transactions = paginatedResult.items.map((paymentIntent) =>
-            this.assembleTransactionResponse(paymentIntent)
+        const transactions = await Promise.all(
+            paginatedResult.items.map((paymentIntent) =>
+                this.assembleTransactionResponse(paymentIntent)
+            )
         );
 
         // Step 4: Construct Paginated Response
-        const result = new ListTransactionsByUserResult(
+        // Step 5: Return Response
+        return new ListTransactionsByUserResult(
             transactions,
             paginatedResult.pageSize,
             paginatedResult.pageToken,
             paginatedResult.nextPageToken
         );
-
-        // Step 5: Return Response
-        return result;
     }
 
     private validateRequest(command: ListTransactionsByUserCommand): void {
@@ -76,12 +78,22 @@ export class ListTransactionsByUserService {
     private buildQuery(
         command: ListTransactionsByUserCommand
     ): TransactionQuery {
+        let paymentMethodFilter: PaymentMethodFilter | undefined;
+        
+        // Convert string paymentMethod to PaymentMethodFilter if provided
+        // This is temporary until command is updated to use PaymentMethodFilter directly
+        if (command.paymentMethod) {
+            paymentMethodFilter = {
+                methodTypeId: command.paymentMethod,
+            };
+        }
+
         return {
             userIdentifier: command.userIdentifier,
             paymentFlowType: command.paymentFlowType,
             status: command.status,
             operationType: command.operationType,
-            paymentMethod: command.paymentMethod,
+            paymentMethod: paymentMethodFilter,
             minAmount: command.minAmount,
             maxAmount: command.maxAmount,
             fromDate: command.fromDate,
@@ -93,9 +105,18 @@ export class ListTransactionsByUserService {
         };
     }
 
-    private assembleTransactionResponse(
+    private async assembleTransactionResponse(
         paymentIntent: PaymentIntent
-    ): FetchTransactionStatusResult {
+    ): Promise<FetchTransactionStatusResult> {
+        const paymentMethod = await this.paymentMethodRepository.findById(
+            paymentIntent.paymentMethodId
+        );
+        if (!paymentMethod) {
+            throw new Error(
+                `PaymentMethod not found for paymentMethodId: ${paymentIntent.paymentMethodId}`
+            );
+        }
+
         // Reuse the exact same logic as Journey 03: Fetch Transaction Status
         const gatewayMetadata = this.extractGatewayMetadata(
             paymentIntent.additionalAttributes
@@ -105,7 +126,7 @@ export class ListTransactionsByUserService {
             paymentIntent.transactionId,
             paymentIntent.paymentIntentId,
             paymentIntent.paymentFlowType,
-            paymentIntent.paymentMethod,
+            paymentMethod,
             paymentIntent.state,
             paymentIntent.amount,
             paymentIntent.currency,

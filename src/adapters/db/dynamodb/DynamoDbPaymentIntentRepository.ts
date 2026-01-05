@@ -1,18 +1,15 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+    ConditionalCheckFailedException,
+    DynamoDBClient,
     GetItemCommand,
     PutItemCommand,
-    QueryCommand,
-    ConditionalCheckFailedException,
+    QueryCommand
 } from "@aws-sdk/client-dynamodb";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
-import { PaymentIntent } from "../../../domain/payment_intent/PaymentIntent";
-import {
-    PaymentIntentRepository,
-    TransactionQuery,
-    PaginatedResult,
-} from "../../../application/port/PaymentIntentRepository";
-import { Logger } from "../../../application/port/Logger";
+import {marshall, unmarshall} from "@aws-sdk/util-dynamodb";
+import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
+import {PaymentIntentRepository, TransactionQuery,} from "../../../application/port/PaymentIntentRepository";
+import {PaginatedResult} from "../../../application/shared/pagination/PaginatedResult";
+import {Logger} from "../../../application/port/Logger";
 
 interface PaymentIntentDataModel {
     transaction_id: string;
@@ -24,7 +21,7 @@ interface PaymentIntentDataModel {
     state: string;
     created_at: string;
     updated_at: string;
-    payment_method: string;
+    payment_method_id: string;
     gateway?: string;
     gateway_transaction_reference?: string;
     payer_reference?: string;
@@ -198,8 +195,7 @@ export class DynamoDbPaymentIntentRepository
             }
         }
 
-        const offset = decodedOffset || 0;
-        const startIndex = offset;
+        const startIndex = decodedOffset || 0;
         const endIndex = startIndex + pageSize;
         const paginatedItems = items.slice(startIndex, endIndex);
 
@@ -364,7 +360,7 @@ export class DynamoDbPaymentIntentRepository
             state: paymentIntent.state,
             created_at: paymentIntent.createdAt.toISOString(),
             updated_at: paymentIntent.updatedAt.toISOString(),
-            payment_method: paymentIntent.paymentMethod,
+            payment_method_id: paymentIntent.paymentMethodId,
             user_identifier: userIdentifier,
         };
 
@@ -417,7 +413,7 @@ export class DynamoDbPaymentIntentRepository
             new Date(dataModel.created_at),
             new Date(dataModel.updated_at),
             dataModel.transaction_id,
-            dataModel.payment_method,
+            dataModel.payment_method_id,
             dataModel.gateway,
             dataModel.gateway_transaction_reference,
             dataModel.payer_reference,

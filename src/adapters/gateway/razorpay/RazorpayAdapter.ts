@@ -1,13 +1,17 @@
-import { PaymentGatewayPort } from "../../../application/port/PaymentGatewayPort";
-import { CreatePayinRequest } from "../../../application/port/gateway/dto/CreatePayinRequest";
-import { CreatePayinResponse } from "../../../application/port/gateway/dto/CreatePayinResponse";
-import { CreatePayoutRequest } from "../../../application/port/gateway/dto/CreatePayoutRequest";
-import { CreatePayoutResponse } from "../../../application/port/gateway/dto/CreatePayoutResponse";
-import { FetchPaymentStatusRequest } from "../../../application/port/gateway/dto/FetchPaymentStatusRequest";
-import { FetchPaymentStatusResponse } from "../../../application/port/gateway/dto/FetchPaymentStatusResponse";
-import { RazorpayHttpClient } from "./RazorpayHttpClient";
-import { Logger } from "../../../application/port/Logger";
-import { PaymentIntent } from "../../../domain/payment_intent/PaymentIntent";
+import {
+    CreatePayinRequest,
+    CreatePayinResponse,
+    CreatePayoutRequest,
+    CreatePayoutResponse,
+    FetchPaymentStatusRequest,
+    FetchPaymentStatusResponse,
+    GatewayOperationContext,
+    PaymentGatewayPort
+} from "../../../application/port/PaymentGatewayPort";
+import {RazorpayHttpClient} from "./RazorpayHttpClient";
+import {Logger} from "../../../application/port/Logger";
+import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
+import {PaymentMethod} from "../../../domain/payment_intent/PaymentMethod";
 
 export class RazorpayAdapter implements PaymentGatewayPort {
     constructor(
@@ -31,12 +35,16 @@ export class RazorpayAdapter implements PaymentGatewayPort {
                 razorpayRequest
             );
 
-            return new CreatePayinResponse(razorpayResponse.id, {
-                id: razorpayResponse.id,
-                amount: razorpayResponse.amount,
-                currency: razorpayResponse.currency,
-                status: razorpayResponse.status,
-            });
+            return new CreatePayinResponse(
+                razorpayResponse.id,
+                undefined,
+                {
+                    id: razorpayResponse.id,
+                    amount: razorpayResponse.amount,
+                    currency: razorpayResponse.currency,
+                    status: razorpayResponse.status,
+                }
+            );
         } catch (error) {
             this.logger.error(
                 "Razorpay createPayin failed",
@@ -55,8 +63,11 @@ export class RazorpayAdapter implements PaymentGatewayPort {
         request: CreatePayoutRequest
     ): Promise<CreatePayoutResponse> {
         try {
-            const beneficiaryDetails = request.beneficiaryDetails || {};
             const payeeReference = request.paymentIntent.payeeReference || "";
+            const beneficiaryDetails = this.extractBeneficiaryDetails(
+                request.paymentMethod,
+                request.context
+            );
 
             const contactId = await this.ensureContactExists(
                 payeeReference,
@@ -83,13 +94,24 @@ export class RazorpayAdapter implements PaymentGatewayPort {
                 razorpayRequest
             );
 
-            return new CreatePayoutResponse(razorpayResponse.id, {
-                id: razorpayResponse.id,
-                amount: razorpayResponse.amount,
-                currency: razorpayResponse.currency,
-                status: razorpayResponse.status,
-                fund_account_id: razorpayResponse.fund_account_id,
-            });
+            const updatedGatewayRefs: Record<string, Record<string, string>> = {
+                [gatewayId]: {
+                    contact_id: contactId,
+                    fund_account_id: fundAccountId,
+                },
+            };
+
+            return new CreatePayoutResponse(
+                razorpayResponse.id,
+                updatedGatewayRefs,
+                {
+                    id: razorpayResponse.id,
+                    amount: razorpayResponse.amount,
+                    currency: razorpayResponse.currency,
+                    status: razorpayResponse.status,
+                    fund_account_id: razorpayResponse.fund_account_id,
+                }
+            );
         } catch (error) {
             this.logger.error(
                 "Razorpay createPayout failed",
@@ -141,13 +163,17 @@ export class RazorpayAdapter implements PaymentGatewayPort {
             await this.razorpayHttpClient.fetchPayment(paymentId);
         const status = this.mapPayinPaymentStatus(razorpayResponse.status);
 
-        return new FetchPaymentStatusResponse(paymentId, status, {
-            id: razorpayResponse.id,
-            status: razorpayResponse.status,
-            order_id: razorpayResponse.order_id,
-            amount: razorpayResponse.amount,
-            currency: razorpayResponse.currency,
-        });
+        return new FetchPaymentStatusResponse(
+            paymentId,
+            status,
+            {
+                id: razorpayResponse.id,
+                status: razorpayResponse.status,
+                order_id: razorpayResponse.order_id,
+                amount: razorpayResponse.amount,
+                currency: razorpayResponse.currency,
+            }
+        );
     }
 
     private async fetchPayinOrderStatus(
@@ -180,10 +206,61 @@ export class RazorpayAdapter implements PaymentGatewayPort {
         });
     }
 
+    private extractBeneficiaryDetails(
+        paymentMethod: PaymentMethod,
+        context?: GatewayOperationContext
+    ): Record<string, any> {
+        const details: Record<string, any> = {};
+
+        // Extract from paymentMethod.identifiers
+        for (const identifier of paymentMethod.identifiers) {
+            switch (identifier.identifierType) {
+                case "UPI_VPA":
+                    details.vpa = identifier.identifierValue;
+                    details.upiId = identifier.identifierValue;
+                    break;
+                case "BANK_ACCOUNT":
+                    details.accountNumber = identifier.identifierValue;
+                    break;
+                case "EMAIL":
+                    details.email = identifier.identifierValue;
+                    break;
+                case "MOBILE":
+                    details.contact = identifier.identifierValue;
+                    details.phone = identifier.identifierValue;
+                    break;
+            }
+        }
+
+        // Extract from paymentMethod.gatewayRefs if available
+        if (paymentMethod.gatewayRefs) {
+            const razorpayRefs = paymentMethod.gatewayRefs["razorpay"];
+            if (razorpayRefs) {
+                if (razorpayRefs.contact_id) {
+                    details.contactId = razorpayRefs.contact_id;
+                }
+                if (razorpayRefs.fund_account_id) {
+                    details.fundAccountId = razorpayRefs.fund_account_id;
+                }
+            }
+        }
+
+        // Extract from context if provided
+        if (context?.input) {
+            Object.assign(details, context.input);
+        }
+
+        return details;
+    }
+
     private async ensureContactExists(
         payeeReference: string,
         beneficiaryDetails: Record<string, any>
     ): Promise<string> {
+        // Reuse existing contact if available
+        if (beneficiaryDetails.contactId) {
+            return beneficiaryDetails.contactId;
+        }
         const contactRequest = {
             name: beneficiaryDetails.name || payeeReference,
             email: beneficiaryDetails.email,
@@ -201,6 +278,11 @@ export class RazorpayAdapter implements PaymentGatewayPort {
         contactId: string,
         beneficiaryDetails: Record<string, any>
     ): Promise<string> {
+        // Reuse existing fund account if available
+        if (beneficiaryDetails.fundAccountId) {
+            return beneficiaryDetails.fundAccountId;
+        }
+
         let fundAccountRequest;
 
         if (beneficiaryDetails.vpa || beneficiaryDetails.upiId) {
@@ -221,7 +303,8 @@ export class RazorpayAdapter implements PaymentGatewayPort {
                 bank_account: {
                     name:
                         beneficiaryDetails.accountName ||
-                        beneficiaryDetails.name,
+                        beneficiaryDetails.name ||
+                        beneficiaryDetails.contact,
                     ifsc: beneficiaryDetails.ifsc,
                     account_number: beneficiaryDetails.accountNumber,
                 },
