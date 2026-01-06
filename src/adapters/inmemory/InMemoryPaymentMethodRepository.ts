@@ -1,4 +1,4 @@
-import {IdentifierType, PaymentMethod} from "../../domain/payment_intent/PaymentMethod";
+import {IdentifierType, PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {PaymentMethodQuery, PaymentMethodRepository,} from "../../application/port/PaymentMethodRepository";
 import {PaginatedResult} from "../../application/shared/pagination/PaginatedResult";
@@ -11,7 +11,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
     async save(paymentMethod: PaymentMethod): Promise<void> {
         this.byId.set(paymentMethod.paymentMethodId, paymentMethod);
 
-        const userFlowKey = `${paymentMethod.userId}:${paymentMethod.paymentFlow}`;
+        const userFlowKey = `${paymentMethod.userIdentifier}:${paymentMethod.paymentFlow}`;
         const userFlowList = this.byUserAndFlow.get(userFlowKey) || [];
         const existingIndex = userFlowList.findIndex(
             (pm) => pm.paymentMethodId === paymentMethod.paymentMethodId
@@ -126,7 +126,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
 
         const updated = new PaymentMethod(
             existing.paymentMethodId,
-            existing.userId,
+            existing.userIdentifier,
             existing.paymentFlow,
             existing.methodTypeId,
             existing.variant,
@@ -134,7 +134,6 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
             existing.reusable,
             existing.usageCount + 1,
             timestamp,
-            existing.gatewayRefs,
             existing.identifiers
         );
 

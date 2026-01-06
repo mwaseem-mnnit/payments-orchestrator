@@ -1,4 +1,4 @@
-import {PaymentMethod} from "../../domain/payment_intent/PaymentMethod";
+import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 
 export class FetchTransactionStatusResult {

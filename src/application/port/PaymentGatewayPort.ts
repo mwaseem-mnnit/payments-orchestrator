@@ -6,7 +6,7 @@
 
 
 import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
-import {PaymentMethod} from "../../domain/payment_intent/PaymentMethod";
+import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 
 /**
  * Opaque context passed to gateway adapters.

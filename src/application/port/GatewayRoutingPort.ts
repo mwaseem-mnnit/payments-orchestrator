@@ -4,7 +4,7 @@
  *   To change this template use File | Settings | File and Code Templates.
 */
 
-import { PaymentMethod } from "../../domain/payment_intent/PaymentMethod";
+import { PaymentMethod } from "../../domain/payment_method/PaymentMethod";
 
 export interface GatewayRoutingPort {
     resolveGateway(input: {

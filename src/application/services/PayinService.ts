@@ -36,7 +36,7 @@ export class PayinService {
         const paymentMethod = await this.paymentMethodService.resolvePaymentMethod({
             paymentMethodId: command.paymentMethodId,
             paymentMethodInput: command.paymentMethodInput,
-            userId: command.userIdentifier,
+            userIdentifier: command.userIdentifier,
             paymentFlow: "PAYIN",
             correlationId,
         });

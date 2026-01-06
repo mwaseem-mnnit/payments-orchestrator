@@ -1,5 +1,5 @@
 import {PaymentMethodRepository} from "../port/PaymentMethodRepository";
-import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../domain/payment_intent/PaymentMethod";
+import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {IdGenerator} from "../port/IdGenerator";
 import {Logger} from "../port/Logger";
@@ -8,7 +8,7 @@ import {PaymentMethodInput} from "../commands/PaymentCommand";
 export interface ResolvePaymentMethodParams {
     paymentMethodId?: string;
     paymentMethodInput?: PaymentMethodInput;
-    userId: string;
+    userIdentifier: string;
     paymentFlow: PaymentFlow;
     correlationId: string;
 }
@@ -97,14 +97,14 @@ export class PaymentMethodService {
         if (params.paymentMethodId) {
             return await this.resolveExistingPaymentMethod(
                 params.paymentMethodId,
-                params.userId,
+                params.userIdentifier,
                 params.paymentFlow,
                 params.correlationId
             );
         } else if (params.paymentMethodInput) {
             return await this.resolveNewPaymentMethod(
                 params.paymentMethodInput,
-                params.userId,
+                params.userIdentifier,
                 params.paymentFlow,
                 params.correlationId
             );
@@ -131,19 +131,19 @@ export class PaymentMethodService {
         }
 
         // Validate userId matches
-        if (paymentMethod.userId !== userId) {
+        if (paymentMethod.userIdentifier !== userId) {
             this.logger.error(
                 "PaymentMethod userId mismatch",
                 undefined,
                 {
                     paymentMethodId,
                     expectedUserId: userId,
-                    actualUserId: paymentMethod.userId,
+                    actualUserId: paymentMethod.userIdentifier,
                     correlationId,
                 }
             );
             throw new Error(
-                `PaymentMethod userId does not match: expected ${userId}, got ${paymentMethod.userId}`
+                `PaymentMethod userId does not match: expected ${userId}, got ${paymentMethod.userIdentifier}`
             );
         }
 
@@ -185,7 +185,7 @@ export class PaymentMethodService {
 
     private async resolveNewPaymentMethod(
         paymentMethodInput: PaymentMethodInput,
-        userId: string,
+        userIdentifier: string,
         paymentFlow: PaymentFlow,
         correlationId: string
     ): Promise<PaymentMethod> {
@@ -211,7 +211,7 @@ export class PaymentMethodService {
             if (existing) {
                 // Validate it belongs to the same user and flow
                 if (
-                    existing.userId === userId &&
+                    existing.userIdentifier === userIdentifier &&
                     existing.paymentFlow === paymentFlow
                 ) {
                     this.logger.error(
@@ -244,7 +244,7 @@ export class PaymentMethodService {
 
         const newPaymentMethod = new PaymentMethod(
             paymentMethodId,
-            userId,
+            userIdentifier,
             paymentFlow,
             paymentMethodInput.methodTypeId,
             paymentMethodInput.variant,
@@ -252,7 +252,6 @@ export class PaymentMethodService {
             true, // reusable
             0, // usageCount
             undefined, // lastUsedAt
-            undefined, // gatewayRefs
             identifiers
         );
 

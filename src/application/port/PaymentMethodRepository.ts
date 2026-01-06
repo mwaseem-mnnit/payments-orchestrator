@@ -1,4 +1,4 @@
-import {IdentifierType, PaymentMethod, PaymentMethodStatus,} from "../../domain/payment_intent/PaymentMethod";
+import {IdentifierType, PaymentMethod, PaymentMethodStatus,} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {PaginatedResult} from "../shared/pagination/PaginatedResult";
 

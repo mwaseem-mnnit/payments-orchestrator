@@ -11,7 +11,7 @@ import {
 import {RazorpayHttpClient} from "./RazorpayHttpClient";
 import {Logger} from "../../../application/port/Logger";
 import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
-import {PaymentMethod} from "../../../domain/payment_intent/PaymentMethod";
+import {PaymentMethod} from "../../../domain/payment_method/PaymentMethod";
 
 export class RazorpayAdapter implements PaymentGatewayPort {
     constructor(
@@ -229,19 +229,6 @@ export class RazorpayAdapter implements PaymentGatewayPort {
                     details.contact = identifier.identifierValue;
                     details.phone = identifier.identifierValue;
                     break;
-            }
-        }
-
-        // Extract from paymentMethod.gatewayRefs if available
-        if (paymentMethod.gatewayRefs) {
-            const razorpayRefs = paymentMethod.gatewayRefs["razorpay"];
-            if (razorpayRefs) {
-                if (razorpayRefs.contact_id) {
-                    details.contactId = razorpayRefs.contact_id;
-                }
-                if (razorpayRefs.fund_account_id) {
-                    details.fundAccountId = razorpayRefs.fund_account_id;
-                }
             }
         }
 

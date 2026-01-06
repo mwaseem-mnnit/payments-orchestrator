@@ -1,4 +1,4 @@
-import {PaymentFlow} from "./PaymentIntent";
+import {PaymentFlow} from "../payment_intent/PaymentIntent";
 
 export type PaymentMethodStatus = "ACTIVE" | "INACTIVE" | "INVALID";
 
@@ -21,7 +21,7 @@ export class PaymentMethodIdentifier {
 export class PaymentMethod {
     constructor(
         public readonly paymentMethodId: string,
-        public readonly userId: string,
+        public readonly userIdentifier: string,
         public readonly paymentFlow: PaymentFlow,
         public readonly methodTypeId: string,
         public readonly variant: string | undefined,
@@ -29,7 +29,6 @@ export class PaymentMethod {
         public readonly reusable: boolean,
         public readonly usageCount: number,
         public readonly lastUsedAt: Date | undefined,
-        public readonly gatewayRefs: Record<string, Record<string, string>> | undefined,
         public readonly identifiers: PaymentMethodIdentifier[]
     ) {}
 }

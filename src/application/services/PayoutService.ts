@@ -1,5 +1,5 @@
 import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
-import {PaymentMethod} from "../../domain/payment_intent/PaymentMethod";
+import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 import {CanonicalEvent} from "../../domain/events/CanonicalEvent";
 import {PaymentCommand} from "../commands/PaymentCommand";
 import {MakePayoutResult} from "../results/MakePayoutResult";
@@ -35,7 +35,7 @@ export class PayoutService {
         const paymentMethod = await this.paymentMethodService.resolvePaymentMethod({
             paymentMethodId: command.paymentMethodId,
             paymentMethodInput: command.paymentMethodInput,
-            userId: command.userIdentifier,
+            userIdentifier: command.userIdentifier,
             paymentFlow: "PAYOUT",
             correlationId,
         });

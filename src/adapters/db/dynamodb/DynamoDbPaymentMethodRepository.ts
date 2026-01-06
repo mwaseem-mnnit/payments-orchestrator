@@ -6,7 +6,7 @@ import {
     UpdateItemCommand
 } from "@aws-sdk/client-dynamodb";
 import {marshall, unmarshall} from "@aws-sdk/util-dynamodb";
-import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../../domain/payment_intent/PaymentMethod";
+import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../../domain/payment_intent/PaymentIntent";
 import {PaymentMethodQuery, PaymentMethodRepository,} from "../../../application/port/PaymentMethodRepository";
 import {PaginatedResult} from "../../../application/shared/pagination/PaginatedResult";
@@ -14,7 +14,7 @@ import {Logger} from "../../../application/port/Logger";
 
 interface PaymentMethodDataModel {
     payment_method_id: string;
-    user_id: string;
+    user_identifier: string;
     payment_flow: string;
     method_type_id: string;
     variant?: string;
@@ -22,7 +22,6 @@ interface PaymentMethodDataModel {
     reusable: boolean;
     usage_count: number;
     last_used_at?: string;
-    gateway_refs?: Record<string, Record<string, string>>;
     identifiers: Array<{
         payment_method_id: string;
         identifier_type: string;
@@ -118,16 +117,16 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     }
 
     async findByUserAndFlow(
-        userId: string,
+        userIdentifier: string,
         paymentFlow: PaymentFlow
     ): Promise<PaymentMethod[]> {
         const command = new QueryCommand({
             TableName: this.tableName,
             IndexName: this.userFlowGsiName,
             KeyConditionExpression:
-                "user_id_gsi = :userId AND payment_flow_gsi = :paymentFlow",
+                "user_id_gsi = :userIdentifier AND payment_flow_gsi = :paymentFlow",
             ExpressionAttributeValues: marshall({
-                ":userId": userId,
+                ":userIdentifier": userIdentifier,
                 ":paymentFlow": paymentFlow,
             }),
         });
@@ -149,7 +148,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                 "Failed to find payment methods by user and flow in DynamoDB",
                 error instanceof Error ? error : new Error(String(error)),
                 {
-                    userId,
+                    userIdentifier: userIdentifier,
                     paymentFlow,
                     tableName: this.tableName,
                     gsiName: this.userFlowGsiName,
@@ -201,17 +200,17 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     }
 
     async listByUser(
-        userId: string,
+        userIdentifier: string,
         query: PaymentMethodQuery
     ): Promise<PaginatedResult<PaymentMethod>> {
         let allMethods: PaymentMethod[] = [];
 
         if (query.paymentFlow) {
-            allMethods = await this.findByUserAndFlow(userId, query.paymentFlow);
+            allMethods = await this.findByUserAndFlow(userIdentifier, query.paymentFlow);
         } else {
             const flows: PaymentFlow[] = ["PAYIN", "PAYOUT", "REFUND"];
             for (const flow of flows) {
-                const methods = await this.findByUserAndFlow(userId, flow);
+                const methods = await this.findByUserAndFlow(userIdentifier, flow);
                 allMethods.push(...methods);
             }
         }
@@ -306,7 +305,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     private toDataModel(paymentMethod: PaymentMethod): PaymentMethodDataModel {
         return {
             payment_method_id: paymentMethod.paymentMethodId,
-            user_id: paymentMethod.userId,
+            user_identifier: paymentMethod.userIdentifier,
             payment_flow: paymentMethod.paymentFlow,
             method_type_id: paymentMethod.methodTypeId,
             variant: paymentMethod.variant,
@@ -314,14 +313,13 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             reusable: paymentMethod.reusable,
             usage_count: paymentMethod.usageCount,
             last_used_at: paymentMethod.lastUsedAt?.toISOString(),
-            gateway_refs: paymentMethod.gatewayRefs,
             identifiers: paymentMethod.identifiers.map((id) => ({
                 payment_method_id: id.paymentMethodId,
                 identifier_type: id.identifierType,
                 identifier_value: id.identifierValue,
                 normalized_value: id.normalizedValue,
             })),
-            user_id_gsi: paymentMethod.userId,
+            user_id_gsi: paymentMethod.userIdentifier,
             payment_flow_gsi: paymentMethod.paymentFlow,
         };
     }
@@ -329,7 +327,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     private toDomain(dataModel: PaymentMethodDataModel): PaymentMethod {
         return new PaymentMethod(
             dataModel.payment_method_id,
-            dataModel.user_id,
+            dataModel.user_identifier,
             dataModel.payment_flow as PaymentFlow,
             dataModel.method_type_id,
             dataModel.variant,
@@ -337,7 +335,6 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             dataModel.reusable,
             dataModel.usage_count,
             dataModel.last_used_at ? new Date(dataModel.last_used_at) : undefined,
-            dataModel.gateway_refs,
             dataModel.identifiers.map(
                 (id) =>
                     new PaymentMethodIdentifier(

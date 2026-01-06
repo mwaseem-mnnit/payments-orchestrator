@@ -1,4 +1,4 @@
-import { PaymentMethod } from "../../domain/payment_intent/PaymentMethod";
+import { PaymentMethod } from "../../domain/payment_method/PaymentMethod";
 
 export class CreatePaymentIntentResult {
     constructor(
