@@ -1,5 +1,4 @@
 import Fastify, { FastifyInstance } from "fastify";
-import { RequestContextMiddleware } from "./middleware/RequestContextMiddleware";
 import { PaymentsController } from "./controllers/PaymentsController";
 import { HealthController } from "./controllers/HealthController";
 import { PayinService } from "../../application/services/PayinService";
@@ -8,10 +7,11 @@ import { FetchTransactionStatusService } from "../../application/services/FetchT
 import { ListTransactionsByUserService } from "../../application/services/ListTransactionsByUserService";
 import { Clock } from "../../application/port/Clock";
 import { IdGenerator } from "../../application/port/IdGenerator";
+import {RequestSetupMiddleware} from "./middleware/RequestSetupMiddleware";
 
 export class HttpServer {
     private readonly fastify: FastifyInstance;
-    private readonly requestContextMiddleware: RequestContextMiddleware;
+    private readonly requestSetupMiddleware: RequestSetupMiddleware;
     private readonly paymentsController: PaymentsController;
     private readonly healthController: HealthController;
 
@@ -27,7 +27,7 @@ export class HttpServer {
             logger: true,
         });
 
-        this.requestContextMiddleware = new RequestContextMiddleware(
+        this.requestSetupMiddleware = new RequestSetupMiddleware(
             clock,
             idGenerator
         );
@@ -46,7 +46,7 @@ export class HttpServer {
     private setupMiddleware(): void {
         this.fastify.addHook(
             "onRequest",
-            this.requestContextMiddleware.middleware()
+            this.requestSetupMiddleware.middleware()
         );
     }
 

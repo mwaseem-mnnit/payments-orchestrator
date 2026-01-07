@@ -1,24 +1,13 @@
-import { AsyncLocalStorage } from "async_hooks";
 import { FastifyRequest, FastifyReply } from "fastify";
 import { Clock } from "../../../application/port/Clock";
 import { IdGenerator } from "../../../application/port/IdGenerator";
+import { RequestContext, requestContextStore } from "../RequestContext";
 
-export interface RequestContext {
-    correlationId: string;
-    requestStartTime: Date;
-}
-
-export class RequestContextMiddleware {
-    private readonly asyncLocalStorage = new AsyncLocalStorage<RequestContext>();
-
+export class RequestSetupMiddleware {
     constructor(
         private readonly clock: Clock,
         private readonly idGenerator: IdGenerator
     ) {}
-
-    getContext(): RequestContext | undefined {
-        return this.asyncLocalStorage.getStore();
-    }
 
     middleware() {
         return async (
@@ -35,12 +24,8 @@ export class RequestContextMiddleware {
                 requestStartTime: this.clock.now(),
             };
 
-            this.asyncLocalStorage.enterWith(context);
+            requestContextStore.enterWith(context);
         };
-    }
-
-    run<T>(context: RequestContext, fn: () => Promise<T>): Promise<T> {
-        return this.asyncLocalStorage.run(context, fn);
     }
 }
 

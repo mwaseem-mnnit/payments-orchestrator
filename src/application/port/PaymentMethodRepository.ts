@@ -1,6 +1,7 @@
-import {IdentifierType, PaymentMethod, PaymentMethodStatus,} from "../../domain/payment_method/PaymentMethod";
+import {PaymentMethod, PaymentMethodStatus,} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {PaginatedResult} from "../shared/pagination/PaginatedResult";
+import { IdentifierType } from "../../domain/payment_method_type/PaymentMethodType";
 
 export interface PaymentMethodQuery {
     paymentFlow?: PaymentFlow;

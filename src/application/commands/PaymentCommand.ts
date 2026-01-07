@@ -1,4 +1,4 @@
-import {IdentifierType} from "../../domain/payment_method/PaymentMethod";
+import {IdentifierType} from "../../domain/payment_method_type/PaymentMethodType";
 
 export interface PaymentMethodIdentifierInput {
     identifierType: IdentifierType;

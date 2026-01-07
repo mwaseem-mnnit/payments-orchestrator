@@ -23,13 +23,16 @@ export interface GetOrCreatePaymentIntentResult {
 }
 
 export class PaymentIntentService {
+    private PAYMENT_INTENT_TTL_MS: number;
     constructor(
         private readonly paymentIntentRepository: PaymentIntentRepository,
         private readonly idempotencyStore: IdempotencyStore,
         private readonly idGenerator: IdGenerator,
         private readonly clock: Clock,
         private readonly logger: Logger
-    ) {}
+    ) {
+        this.PAYMENT_INTENT_TTL_MS = 5 * 1000; // initialise with 5 seconds
+    }
 
     async getPaymentIntentByTransactionId(
         transactionId: string
@@ -38,10 +41,23 @@ export class PaymentIntentService {
     }
 
     async getOrCreatePaymentIntent(
-        params: CreatePaymentIntentParams,
-        correlationId: string
+        params: CreatePaymentIntentParams
     ): Promise<GetOrCreatePaymentIntentResult> {
-        // Step 1: Check if PaymentIntent already exists
+
+        // Step 1: Try to acquire idempotency key
+        const acquired = await this.idempotencyStore.tryAcquire(
+            params.transactionId,
+            this.PAYMENT_INTENT_TTL_MS
+        );
+
+        // Step 2: If key was not acquired, check repository again to handle race condition
+        if (!acquired) {
+            throw new Error(
+                `Idempotency key already acquired for transactionId: ${params.transactionId}`
+            );
+        }
+
+        // Step 3: Check if PaymentIntent already exists
         const existingIntent =
             await this.paymentIntentRepository.findByTransactionId(
                 params.transactionId
@@ -53,37 +69,13 @@ export class PaymentIntentService {
                 undefined,
                 {
                     transactionId: params.transactionId,
-                    paymentIntentId: existingIntent.paymentIntentId,
-                    correlationId,
+                    paymentIntentId: existingIntent.paymentIntentId
                 }
             );
             return {
                 paymentIntent: existingIntent,
                 wasCreated: false,
             };
-        }
-
-        // Step 2: Try to acquire idempotency key (24 hour TTL)
-        const acquired = await this.idempotencyStore.tryAcquire(
-            params.transactionId,
-            24 * 60 * 60 * 1000
-        );
-
-        // Step 3: If key was not acquired, check repository again to handle race condition
-        if (!acquired) {
-            const raceConditionCheck =
-                await this.paymentIntentRepository.findByTransactionId(
-                    params.transactionId
-                );
-            if (raceConditionCheck) {
-                return {
-                    paymentIntent: raceConditionCheck,
-                    wasCreated: false,
-                };
-            }
-            throw new Error(
-                `Idempotency key already acquired for transactionId: ${params.transactionId}`
-            );
         }
 
         // Step 4: Create new PaymentIntent
@@ -118,8 +110,7 @@ export class PaymentIntentService {
             {
                 paymentIntentId,
                 transactionId: params.transactionId,
-                paymentFlow: params.paymentFlow,
-                correlationId,
+                paymentFlow: params.paymentFlow
             }
         );
 
@@ -131,8 +122,7 @@ export class PaymentIntentService {
 
     async updateGatewaySelection(
         paymentIntent: PaymentIntent,
-        gateway: string,
-        correlationId: string
+        gateway: string
     ): Promise<PaymentIntent> {
         const intentWithGateway = paymentIntent.withGateway(gateway);
         const intentWithGatewaySelected = intentWithGateway.withState(
@@ -147,8 +137,7 @@ export class PaymentIntentService {
             {
                 paymentIntentId: paymentIntent.paymentIntentId,
                 transactionId: paymentIntent.transactionId,
-                gateway,
-                correlationId,
+                gateway
             }
         );
 
@@ -157,8 +146,7 @@ export class PaymentIntentService {
 
     async updateGatewayInitiation(
         paymentIntent: PaymentIntent,
-        gatewayTransactionReference: string,
-        correlationId: string
+        gatewayTransactionReference: string
     ): Promise<PaymentIntent> {
         const intentWithGatewayReference =
             paymentIntent.withGatewayTransactionReference(gatewayTransactionReference);
@@ -173,8 +161,7 @@ export class PaymentIntentService {
             {
                 paymentIntentId: paymentIntent.paymentIntentId,
                 transactionId: paymentIntent.transactionId,
-                gatewayTransactionReference,
-                correlationId,
+                gatewayTransactionReference
             }
         );
 

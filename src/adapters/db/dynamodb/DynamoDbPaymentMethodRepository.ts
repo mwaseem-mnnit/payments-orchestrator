@@ -6,11 +6,12 @@ import {
     UpdateItemCommand
 } from "@aws-sdk/client-dynamodb";
 import {marshall, unmarshall} from "@aws-sdk/util-dynamodb";
-import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../../domain/payment_method/PaymentMethod";
+import {PaymentMethod, PaymentMethodIdentifier} from "../../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../../domain/payment_intent/PaymentIntent";
 import {PaymentMethodQuery, PaymentMethodRepository,} from "../../../application/port/PaymentMethodRepository";
 import {PaginatedResult} from "../../../application/shared/pagination/PaginatedResult";
 import {Logger} from "../../../application/port/Logger";
+import {IdentifierType} from "../../../domain/payment_method_type/PaymentMethodType";
 
 interface PaymentMethodDataModel {
     payment_method_id: string;

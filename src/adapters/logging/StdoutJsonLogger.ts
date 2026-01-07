@@ -1,5 +1,6 @@
 import { Logger } from "../../application/port/Logger";
 import { Clock } from "../../application/port/Clock";
+import { requestContextStore } from "../../adapters/http/RequestContext";
 
 type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
@@ -41,8 +42,23 @@ export class StdoutJsonLogger implements Logger {
                 payload.errorMessage = error.message;
             }
 
+            // Initialize context with RequestContext from RequestContextStore if exists
+            const requestContext = requestContextStore.getContext();
+            const context: Record<string, any> = {};
+
+            if (requestContext) {
+                context.correlationId = requestContext.correlationId;
+                context.requestStartTime = requestContext.requestStartTime.toISOString();
+            }
+
+            // Shallow merge metadata into context if exists
             if (metadata) {
-                payload.context = { ...metadata };
+                Object.assign(context, metadata);
+            }
+
+            // Only add context field if there's any context data
+            if (Object.keys(context).length > 0) {
+                payload.context = context;
             }
 
             const jsonLine = JSON.stringify(payload);

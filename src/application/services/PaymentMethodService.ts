@@ -1,16 +1,16 @@
 import {PaymentMethodRepository} from "../port/PaymentMethodRepository";
-import {IdentifierType, PaymentMethod, PaymentMethodIdentifier} from "../../domain/payment_method/PaymentMethod";
+import {PaymentMethod, PaymentMethodIdentifier} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {IdGenerator} from "../port/IdGenerator";
 import {Logger} from "../port/Logger";
 import {PaymentMethodInput} from "../commands/PaymentCommand";
+import {IdentifierType} from "../../domain/payment_method_type/PaymentMethodType";
 
 export interface ResolvePaymentMethodParams {
     paymentMethodId?: string;
     paymentMethodInput?: PaymentMethodInput;
     userIdentifier: string;
     paymentFlow: PaymentFlow;
-    correlationId: string;
 }
 
 export interface ValidatePaymentMethodParams {
@@ -98,15 +98,13 @@ export class PaymentMethodService {
             return await this.resolveExistingPaymentMethod(
                 params.paymentMethodId,
                 params.userIdentifier,
-                params.paymentFlow,
-                params.correlationId
+                params.paymentFlow
             );
         } else if (params.paymentMethodInput) {
             return await this.resolveNewPaymentMethod(
                 params.paymentMethodInput,
                 params.userIdentifier,
-                params.paymentFlow,
-                params.correlationId
+                params.paymentFlow
             );
         } else {
             throw new Error(
@@ -118,8 +116,7 @@ export class PaymentMethodService {
     private async resolveExistingPaymentMethod(
         paymentMethodId: string,
         userId: string,
-        paymentFlow: PaymentFlow,
-        correlationId: string
+        paymentFlow: PaymentFlow
     ): Promise<PaymentMethod> {
         const paymentMethod =
             await this.paymentMethodRepository.findById(paymentMethodId);
@@ -138,8 +135,7 @@ export class PaymentMethodService {
                 {
                     paymentMethodId,
                     expectedUserId: userId,
-                    actualUserId: paymentMethod.userIdentifier,
-                    correlationId,
+                    actualUserId: paymentMethod.userIdentifier
                 }
             );
             throw new Error(
@@ -155,8 +151,7 @@ export class PaymentMethodService {
                 {
                     paymentMethodId,
                     expectedPaymentFlow: paymentFlow,
-                    actualPaymentFlow: paymentMethod.paymentFlow,
-                    correlationId,
+                    actualPaymentFlow: paymentMethod.paymentFlow
                 }
             );
             throw new Error(
@@ -171,8 +166,7 @@ export class PaymentMethodService {
                 undefined,
                 {
                     paymentMethodId,
-                    status: paymentMethod.status,
-                    correlationId,
+                    status: paymentMethod.status
                 }
             );
             throw new Error(
@@ -186,8 +180,7 @@ export class PaymentMethodService {
     private async resolveNewPaymentMethod(
         paymentMethodInput: PaymentMethodInput,
         userIdentifier: string,
-        paymentFlow: PaymentFlow,
-        correlationId: string
+        paymentFlow: PaymentFlow
     ): Promise<PaymentMethod> {
         // Normalize identifiers
         const normalizedIdentifiers = paymentMethodInput.identifiers.map(
@@ -220,8 +213,7 @@ export class PaymentMethodService {
                         {
                             paymentMethodId: existing.paymentMethodId,
                             identifierType: normalized.identifierType,
-                            normalizedValue: normalized.normalizedValue,
-                            correlationId,
+                            normalizedValue: normalized.normalizedValue
                         }
                     );
                     return existing;
@@ -262,8 +254,7 @@ export class PaymentMethodService {
             undefined,
             {
                 paymentMethodId,
-                methodTypeId: paymentMethodInput.methodTypeId,
-                correlationId,
+                methodTypeId: paymentMethodInput.methodTypeId
             }
         );
 

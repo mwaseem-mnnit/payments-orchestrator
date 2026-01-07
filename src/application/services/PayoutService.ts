@@ -1,16 +1,21 @@
-import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
-import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
-import {CanonicalEvent} from "../../domain/events/CanonicalEvent";
-import {PaymentCommand} from "../commands/PaymentCommand";
-import {MakePayoutResult} from "../results/MakePayoutResult";
-import {GatewayRoutingPort} from "../port/GatewayRoutingPort";
-import {CreatePayoutRequest, GatewayOperationContext, PaymentGatewayPort} from "../port/PaymentGatewayPort";
-import {EventPublisher} from "../port/EventPublisher";
-import {Clock} from "../port/Clock";
-import {IdGenerator} from "../port/IdGenerator";
-import {Logger} from "../port/Logger";
-import {PaymentMethodService} from "./PaymentMethodService";
-import {PaymentIntentService} from "./PaymentIntentService";
+import { PaymentIntent } from "../../domain/payment_intent/PaymentIntent";
+import { PaymentMethod } from "../../domain/payment_method/PaymentMethod";
+import { CanonicalEvent } from "../../domain/events/CanonicalEvent";
+import { PaymentCommand } from "../commands/PaymentCommand";
+import { MakePayoutResult } from "../results/MakePayoutResult";
+import {
+    GatewayRoutingPort,
+    GatewayRoutingRequest,
+    GatewayRoutingErrorType
+} from "../port/GatewayRoutingPort";
+import { CreatePayoutRequest, GatewayOperationContext, PaymentGatewayPort } from "../port/PaymentGatewayPort";
+import { EventPublisher } from "../port/EventPublisher";
+import { Clock } from "../port/Clock";
+import { IdGenerator } from "../port/IdGenerator";
+import { Logger } from "../port/Logger";
+import { PaymentMethodService } from "./PaymentMethodService";
+import { PaymentIntentService } from "./PaymentIntentService";
+import { GatewayHealthStatus } from "../../domain/routing/GatewayHealthStatus";
 
 export class PayoutService {
     constructor(
@@ -25,7 +30,6 @@ export class PayoutService {
     ) {}
 
     async execute(command: PaymentCommand): Promise<MakePayoutResult> {
-        const correlationId = this.idGenerator.generate();
         const now = this.clock.now();
 
         // Step 1: Validate Request
@@ -36,8 +40,7 @@ export class PayoutService {
             paymentMethodId: command.paymentMethodId,
             paymentMethodInput: command.paymentMethodInput,
             userIdentifier: command.userIdentifier,
-            paymentFlow: "PAYOUT",
-            correlationId,
+            paymentFlow: "PAYOUT"
         });
 
         // Step 3: Get or Create PaymentIntent (MUST occur before any gateway call, idempotency handled internally)
@@ -56,8 +59,7 @@ export class PayoutService {
                 userId: command.userIdentifier,
                 payeeReference: beneficiaryIdentifier,
                 additionalAttributes: command.additionalAttributes,
-            },
-            correlationId
+            }
         );
 
         // If PaymentIntent already existed, return it immediately
@@ -73,18 +75,55 @@ export class PayoutService {
         if (command.preferredGateway) {
             selectedGateway = command.preferredGateway;
         } else {
-            selectedGateway = await this.gatewayRoutingPort.resolveGateway({
-                paymentMethod: paymentMethod,
-                amount: command.amount,
-                currency: currency,
-            });
+            // Build routing request
+            const routingRequest = new GatewayRoutingRequest(
+                "PAYOUT",
+                "PAYOUT",
+                command.amount,
+                currency,
+                paymentMethod.paymentMethodId,
+                paymentMethod.methodTypeId,
+                process.env.region,
+                command.userIdentifier,
+                beneficiaryIdentifier,
+                command.additionalAttributes
+            );
+
+            // Get eligible gateways (in production, this would come from a gateway eligibility service)
+            const eligibleGateways = this.getEligibleGateways(paymentMethod.methodTypeId, currency);
+
+            // Get gateway health status (in production, this would come from a health service)
+            const gatewayHealth = this.getGatewayHealth(eligibleGateways);
+
+            // Select gateway using routing
+            const routingResult = await this.gatewayRoutingPort.selectGateway(
+                routingRequest,
+                eligibleGateways,
+                gatewayHealth
+            );
+
+            if (!routingResult.isSuccess() || !routingResult.selectedGatewayId) {
+                const errorMessage = routingResult.error?.message || "Gateway routing failed";
+                this.logger.error(
+                    "Gateway routing failed",
+                    undefined,
+                    {
+                        paymentIntentId,
+                        transactionId: command.transactionId,
+                        errorType: routingResult.error?.errorType,
+                        errorDetails: routingResult.error?.details
+                    }
+                );
+                throw new Error(`Gateway selection failed: ${errorMessage}`);
+            }
+
+            selectedGateway = routingResult.selectedGatewayId;
         }
 
         // Step 5: Update PaymentIntent with Gateway Selection
         const intentWithGatewaySelected = await this.paymentIntentService.updateGatewaySelection(
             paymentIntent,
-            selectedGateway,
-            correlationId
+            selectedGateway
         );
 
         // Step 6: Initiate Payout via Gateway Adapter
@@ -124,8 +163,7 @@ export class PayoutService {
         // Step 8: Update PaymentIntent with Gateway Reference
         const intentWithGatewayInitiated = await this.paymentIntentService.updateGatewayInitiation(
             intentWithGatewaySelected,
-            gatewayOrderResponse.gatewayTransactionReference,
-            correlationId
+            gatewayOrderResponse.gatewayTransactionReference
         );
 
         this.logger.error(
@@ -134,8 +172,7 @@ export class PayoutService {
             {
                 paymentIntentId,
                 transactionId: command.transactionId,
-                correlationId,
-                gateway: selectedGateway,
+                gateway: selectedGateway
             }
         );
 
@@ -249,6 +286,37 @@ export class PayoutService {
             paymentIntent.updatedAt,
             paymentIntent.gateway
         );
+    }
+
+    /**
+     * Gets eligible gateways for the payment method type and currency.
+     * 
+     * TODO: This should be replaced with a proper GatewayEligibilityService
+     * that determines eligible gateways based on payment method, currency, region, etc.
+     */
+    private getEligibleGateways(
+        paymentMethodType?: string,
+        currency?: string
+    ): string[] {
+        // Placeholder implementation - returns common gateways
+        // In production, this should query gateway capabilities
+        return ["RAZORPAY", "CASHFREE", "JUSPAY"];
+    }
+
+    /**
+     * Gets gateway health status for the given gateways.
+     * 
+     * TODO: This should be replaced with a proper GatewayHealthService
+     * that queries real-time or cached gateway health status.
+     */
+    private getGatewayHealth(gateways: string[]): Map<string, GatewayHealthStatus> {
+        const healthMap = new Map<string, GatewayHealthStatus>();
+        // Default all gateways to HEALTHY for now
+        // In production, this should query actual health status
+        for (const gateway of gateways) {
+            healthMap.set(gateway, "HEALTHY");
+        }
+        return healthMap;
     }
 }
 

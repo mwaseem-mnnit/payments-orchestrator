@@ -1,13 +1,7 @@
 import {PaymentFlow} from "../payment_intent/PaymentIntent";
+import { IdentifierType } from "../payment_method_type/PaymentMethodType";
 
 export type PaymentMethodStatus = "ACTIVE" | "INACTIVE" | "INVALID";
-
-export type IdentifierType =
-    | "UPI_VPA"
-    | "BANK_ACCOUNT"
-    | "EMAIL"
-    | "MOBILE"
-    | "CARD_INSTRUMENT";
 
 export class PaymentMethodIdentifier {
     constructor(

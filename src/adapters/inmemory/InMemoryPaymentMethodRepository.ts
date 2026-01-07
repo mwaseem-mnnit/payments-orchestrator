@@ -1,7 +1,8 @@
-import {IdentifierType, PaymentMethod} from "../../domain/payment_method/PaymentMethod";
+import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {PaymentMethodQuery, PaymentMethodRepository,} from "../../application/port/PaymentMethodRepository";
 import {PaginatedResult} from "../../application/shared/pagination/PaginatedResult";
+import {IdentifierType} from "../../domain/payment_method_type/PaymentMethodType";
 
 export class InMemoryPaymentMethodRepository implements PaymentMethodRepository {
     private readonly byId: Map<string, PaymentMethod> = new Map();
