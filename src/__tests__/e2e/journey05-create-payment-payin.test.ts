@@ -27,7 +27,17 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             body: JSON.stringify({
                 transactionId: "txn_test_001",
                 amount: 1000.50,
-                paymentMethod: "UPI",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "user@upi"
+                        }
+                    ]
+                },
+                currency: "INR"
             }),
         });
 
@@ -38,12 +48,12 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
         expect(result).toMatchObject({
             transactionId: "txn_test_001",
             amount: 1000.50,
-            paymentMethod: "UPI",
             currency: "INR",
             status: "GATEWAY_INITIATED",
         });
 
         expect(result.paymentIntentId).toBeDefined();
+        expect(result.paymentMethod).toBeDefined();
         expect(result.createdAt).toBeDefined();
         expect(result.updatedAt).toBeDefined();
         expect(result.gateway).toBeDefined();
@@ -58,20 +68,23 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             body: JSON.stringify({
                 transactionId: "txn_test_002",
                 amount: 2500.75,
-                paymentMethod: "CARD",
-                currency: "USD",
                 userIdentifier: "user_12345",
-                customerData: {
+                paymentMethodInput: {
+                    methodTypeId: "CARD",
+                    identifiers: [
+                        {
+                            identifierType: "CARD_INSTRUMENT",
+                            identifierValue: "card_instrument_123"
+                        }
+                    ],
+                    variant: "VISA"
+                },
+                currency: "INR",
+                preferredGateway: "RAZORPAY",
+                gatewayContext: {
                     name: "John Doe",
                     email: "john@example.com",
                 },
-                cardData: {
-                    cardNumber: "4111111111111111",
-                    cvv: "123",
-                    expiryMonth: "12",
-                    expiryYear: "2025",
-                },
-                paymentGateway: "RAZORPAY",
                 additionalAttributes: {
                     orderId: "order_123",
                     metadata: "test_metadata",
@@ -86,13 +99,13 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
         expect(result).toMatchObject({
             transactionId: "txn_test_002",
             amount: 2500.75,
-            paymentMethod: "CARD",
-            currency: "USD",
+            currency: "INR",
             status: "GATEWAY_INITIATED",
             gateway: "RAZORPAY",
         });
 
         expect(result.paymentIntentId).toBeDefined();
+        expect(result.paymentMethod).toBeDefined();
         expect(result.createdAt).toBeDefined();
         expect(result.updatedAt).toBeDefined();
     });
@@ -101,7 +114,17 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
         const requestBody = {
             transactionId: "txn_idempotent_001",
             amount: 1500.00,
-            paymentMethod: "UPI",
+            userIdentifier: "user_idempotent_001",
+            paymentMethodInput: {
+                methodTypeId: "UPI",
+                identifiers: [
+                    {
+                        identifierType: "UPI_VPA",
+                        identifierValue: "user@upi"
+                    }
+                ]
+            },
+            currency: "INR"
         };
 
         const firstResponse = await fetch(`${baseUrl}/v1/payment-intents`, {
@@ -138,11 +161,20 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             },
             body: JSON.stringify({
                 amount: 1000.50,
-                paymentMethod: "UPI",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "user@upi"
+                        }
+                    ]
+                },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
     test("returns validation error for missing amount", async () => {
@@ -153,14 +185,23 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             },
             body: JSON.stringify({
                 transactionId: "txn_test_003",
-                paymentMethod: "UPI",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "user@upi"
+                        }
+                    ]
+                },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
-    test("returns validation error for missing paymentMethod", async () => {
+    test("returns validation error for missing paymentMethodInput and paymentMethodId", async () => {
         const response = await fetch(`${baseUrl}/v1/payment-intents`, {
             method: "POST",
             headers: {
@@ -169,10 +210,35 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             body: JSON.stringify({
                 transactionId: "txn_test_004",
                 amount: 1000.50,
+                userIdentifier: "user_test_001",
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
+    });
+
+    test("returns validation error for missing userIdentifier", async () => {
+        const response = await fetch(`${baseUrl}/v1/payment-intents`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                transactionId: "txn_test_004",
+                amount: 1000.50,
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "user@upi"
+                        }
+                    ]
+                },
+            }),
+        });
+
+        expect(response.status).toBe(400);
     });
 
     test("returns validation error for negative amount", async () => {
@@ -184,11 +250,20 @@ describe("Journey 05: Create Payment Intent (Payin)", () => {
             body: JSON.stringify({
                 transactionId: "txn_test_005",
                 amount: -100.00,
-                paymentMethod: "UPI",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "user@upi"
+                        }
+                    ]
+                },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 });
 

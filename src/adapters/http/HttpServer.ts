@@ -58,7 +58,7 @@ export class HttpServer {
 
         this.fastify.post(
             "/v1/payment-intents",
-            this.paymentsController.createPaymentIntent.bind(
+            this.paymentsController.createPaymentPayin.bind(
                 this.paymentsController
             )
         );

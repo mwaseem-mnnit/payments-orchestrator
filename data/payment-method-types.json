@@ -1,0 +1,50 @@
+[
+  {
+    "methodTypeId": "UPI",
+    "displayName": "UPI",
+    "status": "ACTIVE",
+    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "allowedIdentifierTypes": ["UPI_VPA"],
+    "supportsVariants": true,
+    "metadata": {
+      "icon": "upi-icon.svg",
+      "description": "Unified Payments Interface"
+    }
+  },
+  {
+    "methodTypeId": "BANK_ACCOUNT",
+    "displayName": "Bank Account",
+    "status": "ACTIVE",
+    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "allowedIdentifierTypes": ["BANK_ACCOUNT"],
+    "supportsVariants": true,
+    "metadata": {
+      "icon": "bank-account-icon.svg",
+      "description": "Direct bank account transfers"
+    }
+  },
+  {
+    "methodTypeId": "CARD",
+    "displayName": "Card",
+    "status": "ACTIVE",
+    "supportedFlows": ["PAYIN", "REFUND"],
+    "allowedIdentifierTypes": ["CARD_INSTRUMENT"],
+    "supportsVariants": true,
+    "metadata": {
+      "icon": "card-icon.svg",
+      "description": "Credit and debit cards"
+    }
+  },
+  {
+    "methodTypeId": "WALLET",
+    "displayName": "Wallet",
+    "status": "ACTIVE",
+    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "allowedIdentifierTypes": ["EMAIL", "MOBILE"],
+    "supportsVariants": true,
+    "metadata": {
+      "icon": "wallet-icon.svg",
+      "description": "Digital wallets"
+    }
+  }
+]

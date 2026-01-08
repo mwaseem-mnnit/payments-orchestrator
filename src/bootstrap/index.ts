@@ -17,6 +17,9 @@ const httpServer = new HttpServer(
 
 async function start() {
     try {
+        // Initialize snapshot refresh engines (load on startup, start periodic refresh)
+        await container.initialize();
+        
         await httpServer.listen(port, host);
         console.log(`Server listening on ${host}:${port}`);
     } catch (error) {

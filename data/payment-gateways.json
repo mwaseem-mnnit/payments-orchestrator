@@ -1,0 +1,50 @@
+[
+  {
+    "gatewayId": "RAZORPAY",
+    "displayName": "Razorpay",
+    "status": "ENABLED",
+    "supportedFlows": ["PAYIN", "PAYOUT", "REFUND"],
+    "supportedMethodTypes": ["UPI", "CARD", "BANK_ACCOUNT", "WALLET"],
+    "regions": ["IN"],
+    "metadata": {
+      "icon": "razorpay-icon.svg",
+      "description": "Razorpay payment gateway"
+    }
+  },
+  {
+    "gatewayId": "PAYTM",
+    "displayName": "Paytm",
+    "status": "ENABLED",
+    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "supportedMethodTypes": ["UPI", "WALLET", "BANK_ACCOUNT"],
+    "regions": ["IN"],
+    "metadata": {
+      "icon": "paytm-icon.svg",
+      "description": "Paytm payment gateway"
+    }
+  },
+  {
+    "gatewayId": "CASHFREE",
+    "displayName": "Cashfree",
+    "status": "ENABLED",
+    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "supportedMethodTypes": ["UPI", "BANK_ACCOUNT", "CARD"],
+    "regions": ["IN"],
+    "metadata": {
+      "icon": "cashfree-icon.svg",
+      "description": "Cashfree payment gateway"
+    }
+  },
+  {
+    "gatewayId": "STRIPE",
+    "displayName": "Stripe",
+    "status": "ENABLED",
+    "supportedFlows": ["PAYIN", "REFUND"],
+    "supportedMethodTypes": ["CARD", "BANK_ACCOUNT"],
+    "regions": ["US", "GB", "EU"],
+    "metadata": {
+      "icon": "stripe-icon.svg",
+      "description": "Stripe payment gateway"
+    }
+  }
+]

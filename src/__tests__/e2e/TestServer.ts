@@ -22,6 +22,9 @@ export class TestServer {
     }
 
     async start(): Promise<void> {
+        // Initialize snapshot refresh engines (load configuration data)
+        await this.container.initialize();
+        
         await this.httpServer.listen(this.port, "127.0.0.1");
         const address = this.httpServer.getInstance().server.address();
         if (address && typeof address === "object") {

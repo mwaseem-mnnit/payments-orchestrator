@@ -65,7 +65,7 @@ export class PaymentsController {
         private readonly listTransactionsByUserService: ListTransactionsByUserService
     ) {}
 
-    async createPaymentIntent(
+    async createPaymentPayin(
         request: FastifyRequest<{
             Body: CreatePaymentIntentRequestBody;
         }>,
@@ -86,6 +86,7 @@ export class PaymentsController {
             body.paymentMethodId,
             body.paymentMethodInput,
             body.preferredGateway,
+            body.gatewayContext,
             body.additionalAttributes
         );
 

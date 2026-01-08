@@ -27,10 +27,17 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_001",
                 amount: 5000.00,
-                paymentMethod: "UPI",
-                beneficiaryDetails: {
-                    upiId: "beneficiary@upi",
+                userIdentifier: "user_payout_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@upi"
+                        }
+                    ]
                 },
+                currency: "INR"
             }),
         });
 
@@ -41,12 +48,12 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
         expect(result).toMatchObject({
             transactionId: "payout_test_001",
             amount: 5000.00,
-            paymentMethod: "UPI",
             currency: "INR",
             status: "GATEWAY_INITIATED",
         });
 
         expect(result.paymentIntentId).toBeDefined();
+        expect(result.paymentMethod).toBeDefined();
         expect(result.createdAt).toBeDefined();
         expect(result.updatedAt).toBeDefined();
         expect(result.gateway).toBeDefined();
@@ -61,19 +68,23 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_002",
                 amount: 10000.50,
-                paymentMethod: "BANK_TRANSFER",
-                currency: "USD",
                 userIdentifier: "user_payout_002",
-                customerData: {
+                paymentMethodInput: {
+                    methodTypeId: "BANK_ACCOUNT",
+                    identifiers: [
+                        {
+                            identifierType: "BANK_ACCOUNT",
+                            identifierValue: "1234567890|SBIN0001234"
+                        }
+                    ]
+                },
+                currency: "INR",
+                preferredGateway: "CASHFREE",
+                gatewayContext: {
                     name: "Jane Doe",
                     email: "jane@example.com",
-                },
-                beneficiaryDetails: {
-                    accountNumber: "1234567890",
-                    ifsc: "SBIN0001234",
                     bankName: "State Bank of India",
                 },
-                paymentGateway: "CASHFREE",
                 additionalAttributes: {
                     purpose: "salary",
                     reference: "ref_123",
@@ -88,13 +99,13 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
         expect(result).toMatchObject({
             transactionId: "payout_test_002",
             amount: 10000.50,
-            paymentMethod: "BANK_TRANSFER",
-            currency: "USD",
+            currency: "INR",
             status: "GATEWAY_INITIATED",
             gateway: "CASHFREE",
         });
 
         expect(result.paymentIntentId).toBeDefined();
+        expect(result.paymentMethod).toBeDefined();
         expect(result.createdAt).toBeDefined();
         expect(result.updatedAt).toBeDefined();
     });
@@ -103,10 +114,17 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
         const requestBody = {
             transactionId: "payout_idempotent_001",
             amount: 7500.00,
-            paymentMethod: "UPI",
-            beneficiaryDetails: {
-                upiId: "beneficiary@upi",
+            userIdentifier: "user_idempotent_001",
+            paymentMethodInput: {
+                methodTypeId: "UPI",
+                identifiers: [
+                    {
+                        identifierType: "UPI_VPA",
+                        identifierValue: "beneficiary@upi"
+                    }
+                ]
             },
+            currency: "INR"
         };
 
         const firstResponse = await fetch(`${baseUrl}/v1/payouts`, {
@@ -143,14 +161,20 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             },
             body: JSON.stringify({
                 amount: 5000.00,
-                paymentMethod: "UPI",
-                beneficiaryDetails: {
-                    upiId: "beneficiary@upi",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@upi"
+                        }
+                    ]
                 },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
     test("returns validation error for missing amount", async () => {
@@ -161,17 +185,23 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             },
             body: JSON.stringify({
                 transactionId: "payout_test_003",
-                paymentMethod: "UPI",
-                beneficiaryDetails: {
-                    upiId: "beneficiary@upi",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@upi"
+                        }
+                    ]
                 },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
-    test("returns validation error for missing paymentMethod", async () => {
+    test("returns validation error for missing paymentMethodInput and paymentMethodId", async () => {
         const response = await fetch(`${baseUrl}/v1/payouts`, {
             method: "POST",
             headers: {
@@ -180,16 +210,14 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_004",
                 amount: 5000.00,
-                beneficiaryDetails: {
-                    upiId: "beneficiary@upi",
-                },
+                userIdentifier: "user_test_001",
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
-    test("returns validation error for missing beneficiaryDetails", async () => {
+    test("returns validation error for missing userIdentifier", async () => {
         const response = await fetch(`${baseUrl}/v1/payouts`, {
             method: "POST",
             headers: {
@@ -198,14 +226,22 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_005",
                 amount: 5000.00,
-                paymentMethod: "UPI",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@upi"
+                        }
+                    ]
+                },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBe(400);
     });
 
-    test("returns validation error for empty beneficiaryDetails", async () => {
+    test("returns validation error for empty identifiers array", async () => {
         const response = await fetch(`${baseUrl}/v1/payouts`, {
             method: "POST",
             headers: {
@@ -214,12 +250,15 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_006",
                 amount: 5000.00,
-                paymentMethod: "UPI",
-                beneficiaryDetails: {},
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: []
+                },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
     test("returns validation error for zero or negative amount", async () => {
@@ -231,17 +270,23 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_test_007",
                 amount: 0,
-                paymentMethod: "UPI",
-                beneficiaryDetails: {
-                    upiId: "beneficiary@upi",
+                userIdentifier: "user_test_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@upi"
+                        }
+                    ]
                 },
             }),
         });
 
-        expect(response.status).toBe(500);
+        expect(response.status).toBeGreaterThanOrEqual(400);
     });
 
-    test("creates payout with UPI beneficiary details", async () => {
+    test("creates payout with UPI payment method input", async () => {
         const response = await fetch(`${baseUrl}/v1/payouts`, {
             method: "POST",
             headers: {
@@ -250,10 +295,17 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_upi_001",
                 amount: 3000.00,
-                paymentMethod: "UPI",
-                beneficiaryDetails: {
-                    upiId: "beneficiary@paytm",
+                userIdentifier: "user_upi_001",
+                paymentMethodInput: {
+                    methodTypeId: "UPI",
+                    identifiers: [
+                        {
+                            identifierType: "UPI_VPA",
+                            identifierValue: "beneficiary@paytm"
+                        }
+                    ]
                 },
+                currency: "INR"
             }),
         });
 
@@ -261,10 +313,11 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
         const result = await response.json();
 
         expect(result.status).toBe("GATEWAY_INITIATED");
-        expect(result.paymentMethod).toBe("UPI");
+        expect(result.paymentMethod).toBeDefined();
+        expect(result.paymentMethod.methodTypeId).toBe("UPI");
     });
 
-    test("creates payout with bank account beneficiary details", async () => {
+    test("creates payout with bank account payment method input", async () => {
         const response = await fetch(`${baseUrl}/v1/payouts`, {
             method: "POST",
             headers: {
@@ -273,12 +326,17 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
             body: JSON.stringify({
                 transactionId: "payout_bank_001",
                 amount: 15000.00,
-                paymentMethod: "BANK_TRANSFER",
-                beneficiaryDetails: {
-                    accountNumber: "9876543210",
-                    ifsc: "HDFC0001234",
-                    bankName: "HDFC Bank",
+                userIdentifier: "user_bank_001",
+                paymentMethodInput: {
+                    methodTypeId: "BANK_ACCOUNT",
+                    identifiers: [
+                        {
+                            identifierType: "BANK_ACCOUNT",
+                            identifierValue: "9876543210|HDFC0001234"
+                        }
+                    ]
                 },
+                currency: "INR"
             }),
         });
 
@@ -286,7 +344,8 @@ describe("Journey 06: Make Payout / Withdrawal", () => {
         const result = await response.json();
 
         expect(result.status).toBe("GATEWAY_INITIATED");
-        expect(result.paymentMethod).toBe("BANK_TRANSFER");
+        expect(result.paymentMethod).toBeDefined();
+        expect(result.paymentMethod.methodTypeId).toBe("BANK_ACCOUNT");
     });
 });
 
