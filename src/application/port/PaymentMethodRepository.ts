@@ -28,6 +28,8 @@ export interface PaymentMethodRepository {
         normalizedValue: string
     ): Promise<PaymentMethod | null>;
 
+    findByIdentityKey(identityKey: string): Promise<PaymentMethod | null>;
+
     listByUser(
         userId: string,
         query: PaymentMethodQuery

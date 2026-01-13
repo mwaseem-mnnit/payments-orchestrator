@@ -11,10 +11,17 @@ export type PaymentMethodTypeStatus = "ACTIVE" | "INACTIVE";
 export type IdentifierType =
     | "UPI_VPA"
     | "BANK_ACCOUNT"
+    | "IFSC"
     | "EMAIL"
     | "MOBILE"
     | "CARD_INSTRUMENT";
 
+export type IdentityRequirement = "NONE" | "OPTIONAL" | "REQUIRED";
+
+export interface IdentityDefinition {
+    type: "DEFAULT" | "CUSTOM";
+    identifierTypes?: IdentifierType[];
+}
 
 export class PaymentMethodType {
     constructor(
@@ -24,6 +31,9 @@ export class PaymentMethodType {
         public readonly supportedFlows: PaymentFlow[],    // PAYIN, PAYOUT
         public readonly allowedIdentifierTypes: IdentifierType[],
         public readonly supportsVariants: boolean,        // PhonePe, GPay, etc.
+        public readonly identityRequirement: IdentityRequirement,
+        public readonly identityDefinition: IdentityDefinition,
+        public readonly executionMode: "SDK_DRIVEN" | "BACKEND_DRIVEN",
         public readonly metadata: Record<string, unknown> // icons, UI hints
     ) {}
 }

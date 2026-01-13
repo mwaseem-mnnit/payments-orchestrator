@@ -4,7 +4,7 @@ import { PaymentFlow } from "../../domain/payment_intent/PaymentIntent";
 import { IdGenerator } from "../port/IdGenerator";
 import { Logger } from "../port/Logger";
 import { PaymentMethodInput } from "../commands/PaymentCommand";
-import { IdentifierType } from "../../domain/payment_method_type/PaymentMethodType";
+import { IdentifierType, PaymentMethodType } from "../../domain/payment_method_type/PaymentMethodType";
 import { PaymentMethodTypeRepository } from "../../domain/payment_method_type/PaymentMethodTypeRepository";
 
 export interface ResolvePaymentMethodParams {
@@ -17,6 +17,7 @@ export interface ResolvePaymentMethodParams {
 export interface ValidatePaymentMethodParams {
     paymentMethodId?: string;
     paymentMethodInput?: PaymentMethodInput;
+    userIdentifier?: string;
 }
 
 export class PaymentMethodService {
@@ -63,7 +64,8 @@ export class PaymentMethodService {
         if (params.paymentMethodId) {
             await this.validateExistingPaymentMethod(
                 params.paymentMethodId,
-                paymentFlow
+                paymentFlow,
+                params.userIdentifier!
             );
         }
     }
@@ -74,7 +76,11 @@ export class PaymentMethodService {
      * Validates in order:
      * 1. PaymentMethodType exists and is ACTIVE
      * 2. paymentFlow is supported by the type
-     * 3. All identifierTypes are allowed by the type
+     * 3. identityRequirement is enforced:
+     *    - NONE → identifiers MUST be empty or undefined
+     *    - OPTIONAL → identifiers MAY be present
+     *    - REQUIRED → identifiers MUST be present
+     * 4. All identifierTypes are allowed by the type (only if identifiers are present)
      * 
      * Fails fast with explicit errors.
      */
@@ -89,16 +95,7 @@ export class PaymentMethodService {
             throw new Error("paymentMethodInput.methodTypeId is mandatory");
         }
 
-        if (
-            !paymentMethodInput.identifiers ||
-            paymentMethodInput.identifiers.length === 0
-        ) {
-            throw new Error(
-                "paymentMethodInput.identifiers must contain at least one identifier"
-            );
-        }
-
-        // Load and validate PaymentMethodType FIRST (before normalizing identifiers)
+        // Load and validate PaymentMethodType FIRST (before validating identifiers)
         const methodType = await this.paymentMethodTypeRepository.findById(
             paymentMethodInput.methodTypeId
         );
@@ -122,22 +119,46 @@ export class PaymentMethodService {
             );
         }
 
-        // Validate all identifierTypes are allowed
-        for (const identifier of paymentMethodInput.identifiers) {
-            if (
-                !identifier.identifierType ||
-                !identifier.identifierValue ||
-                identifier.identifierValue.trim() === ""
-            ) {
+        // Enforce identityRequirement rules
+        const hasIdentifiers = paymentMethodInput.identifiers && paymentMethodInput.identifiers.length > 0;
+
+        if (methodType.identityRequirement === "NONE") {
+            if (hasIdentifiers) {
                 throw new Error(
-                    "Each identifier must have identifierType and identifierValue"
+                    `PaymentMethodType ${paymentMethodInput.methodTypeId} requires NO identifiers (identityRequirement: NONE), but identifiers were provided`
                 );
             }
+            // No identifiers needed - validation complete
+            return;
+        }
 
-            if (!methodType.allowedIdentifierTypes.includes(identifier.identifierType)) {
+        if (methodType.identityRequirement === "REQUIRED") {
+            if (!hasIdentifiers) {
                 throw new Error(
-                    `IdentifierType ${identifier.identifierType} is not allowed for PaymentMethodType ${paymentMethodInput.methodTypeId}. Allowed types: ${methodType.allowedIdentifierTypes.join(", ")}`
+                    `PaymentMethodType ${paymentMethodInput.methodTypeId} requires identifiers (identityRequirement: REQUIRED), but none were provided`
                 );
+            }
+        }
+        // OPTIONAL: identifiers may or may not be present
+
+        // Validate identifierTypes are allowed (only if identifiers are present)
+        if (hasIdentifiers) {
+            for (const identifier of paymentMethodInput.identifiers) {
+                if (
+                    !identifier.identifierType ||
+                    !identifier.identifierValue ||
+                    identifier.identifierValue.trim() === ""
+                ) {
+                    throw new Error(
+                        "Each identifier must have identifierType and identifierValue"
+                    );
+                }
+
+                if (!methodType.allowedIdentifierTypes.includes(identifier.identifierType)) {
+                    throw new Error(
+                        `IdentifierType ${identifier.identifierType} is not allowed for PaymentMethodType ${paymentMethodInput.methodTypeId}. Allowed types: ${methodType.allowedIdentifierTypes.join(", ")}`
+                    );
+                }
             }
         }
     }
@@ -153,7 +174,8 @@ export class PaymentMethodService {
      */
     private async validateExistingPaymentMethod(
         paymentMethodId: string,
-        paymentFlow: PaymentFlow
+        paymentFlow: PaymentFlow,
+        userIdentifier: string
     ): Promise<void> {
         const paymentMethod = await this.paymentMethodRepository.findById(
             paymentMethodId
@@ -162,6 +184,22 @@ export class PaymentMethodService {
         if (!paymentMethod) {
             throw new Error(
                 `PaymentMethod not found: ${paymentMethodId}`
+            );
+        }
+
+        // Validate userId matches
+        if (paymentMethod.userIdentifier !== userIdentifier) {
+            this.logger.error(
+                "PaymentMethod userIdentifier mismatch",
+                undefined,
+                {
+                    paymentMethodId,
+                    expectedUserId: userIdentifier,
+                    actualUserId: paymentMethod.userIdentifier
+                }
+            );
+            throw new Error(
+                `PaymentMethod userId does not match: expected ${userIdentifier}, got ${paymentMethod.userIdentifier}`
             );
         }
 
@@ -238,7 +276,7 @@ export class PaymentMethodService {
 
     private async resolveExistingPaymentMethod(
         paymentMethodId: string,
-        userId: string,
+        userIdentifier: string,
         paymentFlow: PaymentFlow
     ): Promise<PaymentMethod> {
         const paymentMethod =
@@ -251,18 +289,18 @@ export class PaymentMethodService {
         }
 
         // Validate userId matches
-        if (paymentMethod.userIdentifier !== userId) {
+        if (paymentMethod.userIdentifier !== userIdentifier) {
             this.logger.error(
-                "PaymentMethod userId mismatch",
+                "PaymentMethod userIdentifier mismatch",
                 undefined,
                 {
                     paymentMethodId,
-                    expectedUserId: userId,
+                    expectedUserId: userIdentifier,
                     actualUserId: paymentMethod.userIdentifier
                 }
             );
             throw new Error(
-                `PaymentMethod userId does not match: expected ${userId}, got ${paymentMethod.userIdentifier}`
+                `PaymentMethod userIdentifier does not match: expected ${userIdentifier}, got ${paymentMethod.userIdentifier}`
             );
         }
 
@@ -308,27 +346,23 @@ export class PaymentMethodService {
         paymentFlow: PaymentFlow
     ): Promise<PaymentMethod> {
         // PaymentMethodType validation is already done in validatePaymentMethodFields
-        // It's safe to normalize identifiers since validation has already ensured
-        // all identifierTypes are allowed by the PaymentMethodType
-
-        // Normalize identifiers
-        const normalizedIdentifiers = paymentMethodInput.identifiers.map(
-            (input) => ({
-                identifierType: input.identifierType,
-                identifierValue: input.identifierValue,
-                normalizedValue: this.normalizeIdentifier(
-                    input.identifierType,
-                    input.identifierValue
-                ),
-            })
+        // Load PaymentMethodType to compute identity
+        const methodType = await this.paymentMethodTypeRepository.findById(
+            paymentMethodInput.methodTypeId
         );
 
-        // Lookup existing PaymentMethod by normalized identifiers
-        for (const normalized of normalizedIdentifiers) {
-            const existing = await this.paymentMethodRepository.findByIdentifier(
-                normalized.identifierType,
-                normalized.normalizedValue
+        if (!methodType) {
+            throw new Error(
+                `PaymentMethodType not found: ${paymentMethodInput.methodTypeId}`
             );
+        }
+
+        // Compute identityKey once
+        const identityKey = this.computeIdentityKey(paymentMethodInput, methodType);
+
+        // Lookup existing PaymentMethod by identityKey if defined
+        if (identityKey) {
+            const existing = await this.paymentMethodRepository.findByIdentityKey(identityKey);
 
             if (existing) {
                 // Validate it belongs to the same user and flow
@@ -343,8 +377,7 @@ export class PaymentMethodService {
                             undefined,
                             {
                                 paymentMethodId: existing.paymentMethodId,
-                                identifierType: normalized.identifierType,
-                                normalizedValue: normalized.normalizedValue
+                                identityKey: identityKey
                             }
                         );
                         return existing;
@@ -353,6 +386,18 @@ export class PaymentMethodService {
                 }
             }
         }
+
+        // Normalize identifiers for storage (only if present)
+        const normalizedIdentifiers = (paymentMethodInput.identifiers || []).map(
+            (input) => ({
+                identifierType: input.identifierType,
+                identifierValue: input.identifierValue,
+                normalizedValue: this.normalizeIdentifier(
+                    input.identifierType,
+                    input.identifierValue
+                ),
+            })
+        );
 
         // Create new PaymentMethod
         const paymentMethodId = this.idGenerator.generate();
@@ -374,7 +419,8 @@ export class PaymentMethodService {
             paymentMethodInput.methodTypeId,
             paymentMethodInput.variant,
             "ACTIVE",
-            true, // reusable
+            identityKey !== undefined, // reusable = true if identityKey is defined
+            identityKey, // identityKey
             0, // usageCount
             undefined, // lastUsedAt
             identifiers
@@ -387,7 +433,8 @@ export class PaymentMethodService {
             undefined,
             {
                 paymentMethodId,
-                methodTypeId: paymentMethodInput.methodTypeId
+                methodTypeId: paymentMethodInput.methodTypeId,
+                identityKey: identityKey
             }
         );
 
@@ -398,6 +445,7 @@ export class PaymentMethodService {
      * Checks if an existing PaymentMethod can be reused.
      * 
      * Reuse is allowed ONLY if ALL conditions are met:
+     * - identityKey is defined (reuse requires identity)
      * - status == ACTIVE
      * - reusable == true
      * - PaymentMethodType exists and is ACTIVE
@@ -410,6 +458,11 @@ export class PaymentMethodService {
         paymentMethod: PaymentMethod,
         paymentFlow: PaymentFlow
     ): Promise<boolean> {
+        // Check identityKey is defined (reuse requires identity)
+        if (!paymentMethod.identityKey) {
+            return false;
+        }
+
         // Check status
         if (paymentMethod.status !== "ACTIVE") {
             return false;
@@ -434,7 +487,7 @@ export class PaymentMethodService {
             return false;
         }
 
-        // Check all identifierTypes are still allowed
+        // Check all identifierTypes are still allowed (if identifiers exist)
         for (const identifier of paymentMethod.identifiers) {
             if (!methodType.allowedIdentifierTypes.includes(identifier.identifierType)) {
                 return false;
@@ -442,6 +495,81 @@ export class PaymentMethodService {
         }
 
         return true;
+    }
+
+    /**
+     * Computes the identityKey for a PaymentMethod based on PaymentMethodType configuration.
+     * 
+     * Rules:
+     * - If identityRequirement = NONE → return undefined
+     * - If identityDefinition.type = DEFAULT:
+     *   - Normalize identifier values
+     *   - Use identifierTypes from identityDefinition if provided, else use all provided identifiers
+     *   - Sort deterministically by identifierType
+     *   - Format: <methodTypeId>:<normalizedValue1>|<normalizedValue2>|...
+     * - If identityDefinition.type = CUSTOM:
+     *   - return undefined (reuse disabled for now)
+     * 
+     * @param paymentMethodInput The payment method input
+     * @param paymentMethodType The payment method type
+     * @returns The computed identity key, or undefined if identity is not applicable
+     */
+    private computeIdentityKey(
+        paymentMethodInput: PaymentMethodInput,
+        paymentMethodType: PaymentMethodType
+    ): string | undefined {
+        // If identityRequirement is NONE, no identity key
+        if (paymentMethodType.identityRequirement === "NONE") {
+            return undefined;
+        }
+
+        // If identityDefinition is CUSTOM, return undefined (reuse disabled)
+        if (paymentMethodType.identityDefinition.type === "CUSTOM") {
+            return undefined;
+        }
+
+        // For DEFAULT identity definition
+        if (paymentMethodType.identityDefinition.type === "DEFAULT") {
+            const identifiers = paymentMethodInput.identifiers || [];
+
+            // If no identifiers provided and REQUIRED, this should have been caught in validation
+            // But if OPTIONAL and no identifiers, return undefined
+            if (identifiers.length === 0) {
+                return undefined;
+            }
+
+            // Determine which identifiers to use
+            let identifiersToUse: typeof identifiers;
+            if (paymentMethodType.identityDefinition?.identifierTypes?.length) {
+                // Use only the specified identifierTypes
+                identifiersToUse = identifiers.filter(id => 
+                    paymentMethodType.identityDefinition.identifierTypes!.includes(id.identifierType)
+                );
+            } else {
+                // Use all provided identifiers
+                identifiersToUse = identifiers;
+            }
+
+            // If no matching identifiers after filtering, return undefined
+            if (identifiersToUse.length === 0) {
+                return undefined;
+            }
+
+            // Normalize and sort by identifierType for determinism
+            const normalizedParts = identifiersToUse
+                .map(id => ({
+                    type: id.identifierType,
+                    normalized: this.normalizeIdentifier(id.identifierType, id.identifierValue)
+                }))
+                .sort((a, b) => a.type.localeCompare(b.type))
+                .map(part => part.normalized);
+
+            // Format: <methodTypeId>:<normalizedValue1>|<normalizedValue2>|...
+            return `${paymentMethodType.methodTypeId}:${normalizedParts.join("|")}`;
+        }
+
+        // Should not reach here, but return undefined for safety
+        return undefined;
     }
 
     private normalizeIdentifier(

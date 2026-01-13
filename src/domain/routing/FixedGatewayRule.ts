@@ -1,7 +1,7 @@
-import { RoutingRule } from "./RoutingRule";
-import { RoutingRuleType } from "./RoutingRuleType";
-import { RoutingRuleStatus } from "./RoutingRuleStatus";
-import { RoutingContext } from "./RoutingContext";
+import {RoutingRule} from "./RoutingRule";
+import {RoutingRuleStatus} from "./RoutingRuleStatus";
+import {RoutingContext} from "./RoutingContext";
+import {PaymentFlow} from "../payment_intent/PaymentIntent";
 
 /**
  * Fixed gateway rule selects a specific gateway for matching contexts.
@@ -21,8 +21,8 @@ export class FixedGatewayRule extends RoutingRule {
         updatedAt: Date,
         public readonly gatewayId: string,
         public readonly paymentMethodId?: string,
-        public readonly paymentMethodTypeId?: string,
-        public readonly paymentFlowType?: string,
+        paymentFlowTypes?: PaymentFlow[],
+        paymentMethodTypeIds?: string[],
         description?: string
     ) {
         super(
@@ -33,26 +33,20 @@ export class FixedGatewayRule extends RoutingRule {
             version,
             createdAt,
             updatedAt,
+            paymentFlowTypes,
+            paymentMethodTypeIds,
             description
         );
     }
 
-    matches(context: RoutingContext, eligibleGateways: string[]): boolean {
+    protected matchesRuleSpecific(context: RoutingContext, eligibleGateways: string[]): boolean {
         // Must match gateway eligibility
         if (!eligibleGateways.includes(this.gatewayId)) {
             return false;
         }
 
-        // Optional filters
+        // Optional filter: paymentMethodId (rule-specific, not moved to base class)
         if (this.paymentMethodId && context.paymentMethodId !== this.paymentMethodId) {
-            return false;
-        }
-
-        if (this.paymentMethodTypeId && context.paymentMethodTypeId !== this.paymentMethodTypeId) {
-            return false;
-        }
-
-        if (this.paymentFlowType && context.paymentFlowType !== this.paymentFlowType) {
             return false;
         }
 
@@ -90,8 +84,8 @@ export class FixedGatewayRule extends RoutingRule {
             updatedAt,
             this.gatewayId,
             this.paymentMethodId,
-            this.paymentMethodTypeId,
-            this.paymentFlowType,
+            this.paymentFlowTypes,
+            this.paymentMethodTypeIds,
             this.description
         );
     }

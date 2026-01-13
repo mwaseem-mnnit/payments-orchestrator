@@ -158,6 +158,7 @@ export class PayoutService {
             {
                 paymentMethodId: command.paymentMethodId,
                 paymentMethodInput: command.paymentMethodInput,
+                userIdentifier: command.userIdentifier
             },
             "PAYOUT"
         );

@@ -5,7 +5,8 @@ import {
     GatewayRoutingError,
     GatewayRoutingErrorType
 } from "../../application/port/GatewayRoutingPort";
-import { RoutingConfiguration } from "../../domain/routing/RoutingConfiguration";
+import { RoutingRuleRepository } from "../../domain/routing/RoutingRuleRepository";
+import { RoutingRuleEvaluator } from "../../domain/routing/RoutingRuleEvaluator";
 import { RoutingContext } from "../../domain/routing/RoutingContext";
 import { RoutingDecision } from "../../domain/routing/RoutingDecision";
 import { GatewayHealthStatus } from "../../domain/routing/GatewayHealthStatus";
@@ -15,9 +16,10 @@ import { Clock } from "../../application/port/Clock";
  * Adapter implementing GatewayRoutingPort.
  * 
  * This adapter:
- * - Delegates routing logic to RoutingConfiguration domain model
- * - Ensures deterministic, auditable routing decisions
- * - Converts between port DTOs and domain models
+ * - Converts GatewayRoutingRequest to RoutingContext
+ * - Loads routing rules via RoutingRuleRepository
+ * - Delegates evaluation to RoutingRuleEvaluator
+ * - Converts RoutingDecision to GatewayRoutingResult
  * - Handles errors explicitly without silent degradation
  * 
  * Invariants:
@@ -25,28 +27,34 @@ import { Clock } from "../../application/port/Clock";
  * - Only one gateway is selected per request
  * - Routing decisions are immutable once returned
  * - No gateway adapters can influence routing
+ * - No state is stored (stateless adapter)
  */
 export class GatewayRoutingAdapter implements GatewayRoutingPort {
+    private readonly evaluator: RoutingRuleEvaluator;
+
     constructor(
-        private readonly routingConfiguration: RoutingConfiguration,
+        private readonly routingRuleRepository: RoutingRuleRepository,
         private readonly clock: Clock
     ) {
-        if (!routingConfiguration) {
-            throw new Error("RoutingConfiguration must be provided");
+        if (!routingRuleRepository) {
+            throw new Error("RoutingRuleRepository must be provided");
         }
         if (!clock) {
             throw new Error("Clock must be provided");
         }
+        this.evaluator = new RoutingRuleEvaluator();
     }
 
     /**
      * Selects a gateway for the given routing request.
      * 
      * This method:
-     * 1. Converts GatewayRoutingRequest to RoutingContext
-     * 2. Delegates to RoutingConfiguration.makeDecision()
-     * 3. Converts RoutingDecision to GatewayRoutingResult
-     * 4. Handles errors explicitly
+     * 1. Validates inputs
+     * 2. Converts GatewayRoutingRequest to RoutingContext
+     * 3. Loads active routing rules from repository
+     * 4. Delegates to RoutingRuleEvaluator.evaluate()
+     * 5. Converts RoutingDecision to GatewayRoutingResult
+     * 6. Handles errors explicitly
      * 
      * Guarantees:
      * - Deterministic: same inputs produce same output
@@ -68,18 +76,24 @@ export class GatewayRoutingAdapter implements GatewayRoutingPort {
             // Convert request to domain RoutingContext
             const routingContext = this.toRoutingContext(request);
 
-            // Delegate to routing domain for decision
-            const decision = this.routingConfiguration.makeDecision(
+            // Load active rules from repository
+            const rules = await this.routingRuleRepository.findAllActive();
+
+            // Delegate to evaluator for decision
+            const decision = this.evaluator.evaluate(
                 routingContext,
+                rules,
                 eligibleGateways,
                 gatewayHealth
+                // Note: fallbackGatewayId is not available from current interface
+                // If needed, it should be added to GatewayRoutingPort interface in future
             );
 
             // Convert domain decision to port result
             return this.toRoutingResult(decision, routingTimestamp);
         } catch (error) {
             // Handle routing configuration errors
-            if (error instanceof Error && error.message.includes("configuration")) {
+            if (error instanceof Error && error.message.includes("routing")) {
                 return GatewayRoutingResult.failure(
                     new GatewayRoutingError(
                         GatewayRoutingErrorType.INVALID_ROUTING_CONFIGURATION,

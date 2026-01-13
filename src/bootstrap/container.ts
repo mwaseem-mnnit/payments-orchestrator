@@ -5,11 +5,13 @@ import {InMemoryPaymentMethodRepository} from "../adapters/inmemory/InMemoryPaym
 import {PaymentMethodTypeRepositoryImpl} from "../adapters/inmemory/PaymentMethodTypeRepositoryImpl";
 import {PaymentGatewayRepositoryImpl} from "../adapters/inmemory/PaymentGatewayRepositoryImpl";
 import {MappingRuleRepositoryImpl} from "../adapters/inmemory/MappingRuleRepositoryImpl";
+import {RoutingRuleRepositoryImpl} from "../adapters/inmemory/RoutingRuleRepositoryImpl";
 import {InMemorySnapshotStore} from "../adapters/inmemory/InMemorySnapshotStore";
 import {GenericRefreshEngine} from "../adapters/inmemory/GenericRefreshEngine";
 import {JsonPaymentMethodTypeSnapshotLoader} from "../adapters/snapshot/JsonPaymentMethodTypeSnapshotLoader";
 import {JsonPaymentGatewaySnapshotLoader} from "../adapters/snapshot/JsonPaymentGatewaySnapshotLoader";
 import {JsonMappingRuleSnapshotLoader} from "../adapters/snapshot/JsonMappingRuleSnapshotLoader";
+import {JsonRoutingRuleSnapshotLoader} from "../adapters/snapshot/JsonRoutingRuleSnapshotLoader";
 import {InMemoryIdempotencyStore} from "../adapters/inmemory/InMemoryIdempotencyStore";
 import {InMemoryEventPublisher} from "../adapters/inmemory/InMemoryEventPublisher";
 import {FakePaymentGatewayAdapter} from "../adapters/fake/FakePaymentGatewayAdapter";
@@ -25,6 +27,7 @@ import {PaymentMethodGatewayMappingServiceImpl} from "../domain/payment_method_g
 import {PaymentMethodType} from "../domain/payment_method_type/PaymentMethodType";
 import {PaymentGateway} from "../domain/gateway/PaymentGateway";
 import {MappingRule} from "../domain/payment_method_gateway_mapping/MappingRule";
+import {RoutingRule} from "../domain/routing/RoutingRule";
 
 export class ApplicationContainer {
     readonly payinService: PayinService;
@@ -44,6 +47,7 @@ export class ApplicationContainer {
     private readonly paymentMethodTypeRefreshEngine: GenericRefreshEngine<PaymentMethodType>;
     private readonly paymentGatewayRefreshEngine: GenericRefreshEngine<PaymentGateway>;
     private readonly mappingRuleRefreshEngine: GenericRefreshEngine<MappingRule>;
+    private readonly routingRuleRefreshEngine: GenericRefreshEngine<RoutingRule>;
 
     constructor() {
         // System Adapters
@@ -113,6 +117,25 @@ export class ApplicationContainer {
         );
         const mappingRuleRepository = new MappingRuleRepositoryImpl(
             mappingRuleSnapshotStore
+        );
+        
+        // Snapshot Infrastructure for RoutingRule
+        const routingRuleSnapshotStore = new InMemorySnapshotStore<RoutingRule>();
+        const routingRuleSnapshotLoader = new JsonRoutingRuleSnapshotLoader(
+            process.env.ROUTING_RULE_SNAPSHOT_FILE || "./data/routing-rules.json"
+        );
+        const routingRuleRefreshIntervalMs = parseInt(
+            process.env.ROUTING_RULE_REFRESH_INTERVAL_MS || "300000",
+            10
+        );
+        this.routingRuleRefreshEngine = new GenericRefreshEngine(
+            routingRuleSnapshotLoader,
+            routingRuleSnapshotStore,
+            routingRuleRefreshIntervalMs,
+            logger
+        );
+        const routingRuleRepository = new RoutingRuleRepositoryImpl(
+            routingRuleSnapshotStore
         );
         
         this.paymentIntentRepository = new InMemoryPaymentIntentRepository(
@@ -202,6 +225,10 @@ export class ApplicationContainer {
         // Initialize MappingRule snapshot
         await this.mappingRuleRefreshEngine.initialize();
         this.mappingRuleRefreshEngine.start();
+        
+        // Initialize RoutingRule snapshot
+        await this.routingRuleRefreshEngine.initialize();
+        this.routingRuleRefreshEngine.start();
     }
 
     reset(): void {
@@ -214,6 +241,7 @@ export class ApplicationContainer {
         this.paymentMethodTypeRefreshEngine.stop();
         this.paymentGatewayRefreshEngine.stop();
         this.mappingRuleRefreshEngine.stop();
+        this.routingRuleRefreshEngine.stop();
     }
 }
 

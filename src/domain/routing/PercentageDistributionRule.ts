@@ -1,8 +1,8 @@
-import { RoutingRule } from "./RoutingRule";
-import { RoutingRuleType } from "./RoutingRuleType";
-import { RoutingRuleStatus } from "./RoutingRuleStatus";
-import { RoutingContext } from "./RoutingContext";
-import { GatewayDistribution } from "./GatewayDistribution";
+import {RoutingRule} from "./RoutingRule";
+import {RoutingRuleStatus} from "./RoutingRuleStatus";
+import {RoutingContext} from "./RoutingContext";
+import {GatewayDistribution} from "./GatewayDistribution";
+import {PaymentFlow} from "../payment_intent/PaymentIntent";
 
 /**
  * Percentage distribution rule splits traffic across multiple gateways.
@@ -21,8 +21,8 @@ export class PercentageDistributionRule extends RoutingRule {
         createdAt: Date,
         updatedAt: Date,
         public readonly distributions: GatewayDistribution[],
-        public readonly paymentMethodTypeId?: string,
-        public readonly paymentFlowType?: string,
+        paymentFlowTypes?: PaymentFlow[],
+        paymentMethodTypeIds?: string[],
         description?: string
     ) {
         super(
@@ -33,6 +33,8 @@ export class PercentageDistributionRule extends RoutingRule {
             version,
             createdAt,
             updatedAt,
+            paymentFlowTypes,
+            paymentMethodTypeIds,
             description
         );
 
@@ -48,20 +50,11 @@ export class PercentageDistributionRule extends RoutingRule {
         }
     }
 
-    matches(context: RoutingContext, eligibleGateways: string[]): boolean {
+    protected matchesRuleSpecific(context: RoutingContext, eligibleGateways: string[]): boolean {
         // All gateway IDs in distributions must be eligible
         const distributionGateways = this.distributions.map(d => d.gatewayId);
         const allEligible = distributionGateways.every(gw => eligibleGateways.includes(gw));
         if (!allEligible) {
-            return false;
-        }
-
-        // Optional filters
-        if (this.paymentMethodTypeId && context.paymentMethodTypeId !== this.paymentMethodTypeId) {
-            return false;
-        }
-
-        if (this.paymentFlowType && context.paymentFlowType !== this.paymentFlowType) {
             return false;
         }
 
@@ -136,8 +129,8 @@ export class PercentageDistributionRule extends RoutingRule {
             this.createdAt,
             updatedAt,
             this.distributions,
-            this.paymentMethodTypeId,
-            this.paymentFlowType,
+            this.paymentFlowTypes,
+            this.paymentMethodTypeIds,
             this.description
         );
     }

@@ -21,6 +21,7 @@ export class PaymentMethod {
         public readonly variant: string | undefined,
         public readonly status: PaymentMethodStatus,
         public readonly reusable: boolean,
+        public readonly identityKey: string | undefined,
         public readonly usageCount: number,
         public readonly lastUsedAt: Date | undefined,
         public readonly identifiers: PaymentMethodIdentifier[]

@@ -8,6 +8,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
     private readonly byId: Map<string, PaymentMethod> = new Map();
     private readonly byUserAndFlow: Map<string, PaymentMethod[]> = new Map();
     private readonly byIdentifier: Map<string, PaymentMethod> = new Map();
+    private readonly byIdentityKey: Map<string, PaymentMethod> = new Map();
 
     async save(paymentMethod: PaymentMethod): Promise<void> {
         this.byId.set(paymentMethod.paymentMethodId, paymentMethod);
@@ -27,6 +28,10 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
         for (const identifier of paymentMethod.identifiers) {
             const identifierKey = `${identifier.identifierType}:${identifier.normalizedValue}`;
             this.byIdentifier.set(identifierKey, paymentMethod);
+        }
+
+        if (paymentMethod.identityKey) {
+            this.byIdentityKey.set(paymentMethod.identityKey, paymentMethod);
         }
     }
 
@@ -48,6 +53,10 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
     ): Promise<PaymentMethod | null> {
         const key = `${identifierType}:${normalizedValue}`;
         return this.byIdentifier.get(key) || null;
+    }
+
+    async findByIdentityKey(identityKey: string): Promise<PaymentMethod | null> {
+        return this.byIdentityKey.get(identityKey) || null;
     }
 
     async listByUser(
@@ -133,6 +142,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
             existing.variant,
             existing.status,
             existing.reusable,
+            existing.identityKey,
             existing.usageCount + 1,
             timestamp,
             existing.identifiers
@@ -145,6 +155,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
         this.byId.clear();
         this.byUserAndFlow.clear();
         this.byIdentifier.clear();
+        this.byIdentityKey.clear();
     }
 }
 

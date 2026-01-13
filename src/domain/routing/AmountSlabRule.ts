@@ -1,9 +1,9 @@
-import { RoutingRule } from "./RoutingRule";
-import { RoutingRuleType } from "./RoutingRuleType";
-import { RoutingRuleStatus } from "./RoutingRuleStatus";
-import { RoutingContext } from "./RoutingContext";
-import { GatewayDistribution } from "./GatewayDistribution";
-import { AmountRange } from "./AmountRange";
+import {RoutingRule} from "./RoutingRule";
+import {RoutingRuleStatus} from "./RoutingRuleStatus";
+import {RoutingContext} from "./RoutingContext";
+import {GatewayDistribution} from "./GatewayDistribution";
+import {AmountRange} from "./AmountRange";
+import {PaymentFlow} from "../payment_intent/PaymentIntent";
 
 /**
  * Amount slab rule applies different percentage distributions based on amount ranges.
@@ -25,8 +25,8 @@ export class AmountSlabRule extends RoutingRule {
             range: AmountRange;
             distributions: GatewayDistribution[];
         }>,
-        public readonly paymentMethodTypeId?: string,
-        public readonly paymentFlowType?: string,
+        paymentFlowTypes?: PaymentFlow[],
+        paymentMethodTypeIds?: string[],
         description?: string
     ) {
         super(
@@ -37,6 +37,8 @@ export class AmountSlabRule extends RoutingRule {
             version,
             createdAt,
             updatedAt,
+            paymentFlowTypes,
+            paymentMethodTypeIds,
             description
         );
 
@@ -54,7 +56,7 @@ export class AmountSlabRule extends RoutingRule {
         }
     }
 
-    matches(context: RoutingContext, eligibleGateways: string[]): boolean {
+    protected matchesRuleSpecific(context: RoutingContext, eligibleGateways: string[]): boolean {
         // Find matching slab
         const matchingSlab = this.slabs.find(slab => slab.range.contains(context.amount));
         if (!matchingSlab) {
@@ -65,15 +67,6 @@ export class AmountSlabRule extends RoutingRule {
         const distributionGateways = matchingSlab.distributions.map(d => d.gatewayId);
         const allEligible = distributionGateways.every(gw => eligibleGateways.includes(gw));
         if (!allEligible) {
-            return false;
-        }
-
-        // Optional filters
-        if (this.paymentMethodTypeId && context.paymentMethodTypeId !== this.paymentMethodTypeId) {
-            return false;
-        }
-
-        if (this.paymentFlowType && context.paymentFlowType !== this.paymentFlowType) {
             return false;
         }
 
@@ -148,8 +141,8 @@ export class AmountSlabRule extends RoutingRule {
             this.createdAt,
             updatedAt,
             this.slabs,
-            this.paymentMethodTypeId,
-            this.paymentFlowType,
+            this.paymentFlowTypes,
+            this.paymentMethodTypeIds,
             this.description
         );
     }

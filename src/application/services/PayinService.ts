@@ -15,6 +15,7 @@ import {PaymentMethodGatewayMappingService} from "../../domain/payment_method_ga
 import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 
 export class PayinService {
+
     constructor(
         private readonly paymentMethodService: PaymentMethodService,
         private readonly paymentIntentService: PaymentIntentService,
@@ -153,6 +154,7 @@ export class PayinService {
             {
                 paymentMethodId: command.paymentMethodId,
                 paymentMethodInput: command.paymentMethodInput,
+                userIdentifier: command.userIdentifier
             },
             "PAYIN"
         );

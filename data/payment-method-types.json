@@ -6,6 +6,11 @@
     "supportedFlows": ["PAYIN", "PAYOUT"],
     "allowedIdentifierTypes": ["UPI_VPA"],
     "supportsVariants": true,
+    "identityRequirement": "NONE",
+    "identityDefinition": {
+      "type": "DEFAULT"
+    },
+    "executionMode": "SDK_DRIVEN",
     "metadata": {
       "icon": "upi-icon.svg",
       "description": "Unified Payments Interface"
@@ -16,8 +21,14 @@
     "displayName": "Bank Account",
     "status": "ACTIVE",
     "supportedFlows": ["PAYIN", "PAYOUT"],
-    "allowedIdentifierTypes": ["BANK_ACCOUNT"],
+    "allowedIdentifierTypes": ["BANK_ACCOUNT", "IFSC"],
     "supportsVariants": true,
+    "identityRequirement": "REQUIRED",
+    "identityDefinition": {
+      "type": "DEFAULT",
+      "identifierTypes": ["BANK_ACCOUNT", "IFSC"]
+    },
+    "executionMode": "BACKEND_DRIVEN",
     "metadata": {
       "icon": "bank-account-icon.svg",
       "description": "Direct bank account transfers"
@@ -28,8 +39,13 @@
     "displayName": "Card",
     "status": "ACTIVE",
     "supportedFlows": ["PAYIN", "REFUND"],
-    "allowedIdentifierTypes": ["CARD_INSTRUMENT"],
+    "allowedIdentifierTypes": [],
     "supportsVariants": true,
+    "identityRequirement": "NONE",
+    "identityDefinition": {
+      "type": "DEFAULT"
+    },
+    "executionMode": "SDK_DRIVEN",
     "metadata": {
       "icon": "card-icon.svg",
       "description": "Credit and debit cards"
@@ -42,6 +58,12 @@
     "supportedFlows": ["PAYIN", "PAYOUT"],
     "allowedIdentifierTypes": ["EMAIL", "MOBILE"],
     "supportsVariants": true,
+    "identityRequirement": "REQUIRED",
+    "identityDefinition": {
+      "type": "DEFAULT",
+      "identifierTypes": ["EMAIL"]
+    },
+    "executionMode": "BACKEND_DRIVEN",
     "metadata": {
       "icon": "wallet-icon.svg",
       "description": "Digital wallets"

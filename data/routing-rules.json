@@ -1,0 +1,67 @@
+[
+  {
+    "ruleId": "UPI_PAYIN_AMOUNT_SLAB_001",
+    "ruleType": "AMOUNT_SLAB",
+    "priority": 1,
+    "status": "ACTIVE",
+    "version": 1,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "paymentMethodTypeIds": ["UPI"],
+    "paymentFlowTypes": ["PAYIN"],
+    "slabs": [
+      {
+        "range": {
+          "minAmount": 0,
+          "maxAmount": 1000
+        },
+        "distributions": [
+          {
+            "gatewayId": "PAYTM",
+            "percentage": 60
+          },
+          {
+            "gatewayId": "RAZORPAY",
+            "percentage": 40
+          }
+        ]
+      },
+      {
+        "range": {
+          "minAmount": 1000,
+          "maxAmount": 5000
+        },
+        "distributions": [
+          {
+            "gatewayId": "RAZORPAY",
+            "percentage": 100
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "ruleId": "CARD_PAYIN_FIXED_RAZORPAY_001",
+    "ruleType": "FIXED_GATEWAY",
+    "priority": 1,
+    "status": "ACTIVE",
+    "version": 1,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "gatewayId": "RAZORPAY",
+    "paymentMethodTypeIds": ["CARD"],
+    "paymentFlowTypes": ["PAYIN"]
+  },
+  {
+    "ruleId": "BANK_ACCOUNT_PAYOUT_FIXED_CASHFREE_001",
+    "ruleType": "FIXED_GATEWAY",
+    "priority": 1,
+    "status": "ACTIVE",
+    "version": 1,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z",
+    "gatewayId": "CASHFREE",
+    "paymentMethodTypeIds": ["BANK_ACCOUNT"],
+    "paymentFlowTypes": ["PAYOUT"]
+  }
+]

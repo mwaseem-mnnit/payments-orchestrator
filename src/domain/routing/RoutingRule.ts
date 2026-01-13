@@ -1,6 +1,7 @@
 import { RoutingRuleType } from "./RoutingRuleType";
 import { RoutingRuleStatus } from "./RoutingRuleStatus";
 import { RoutingContext } from "./RoutingContext";
+import { PaymentFlow } from "../payment_intent/PaymentIntent";
 
 /**
  * Base class for all routing rules.
@@ -20,6 +21,8 @@ export abstract class RoutingRule {
         public readonly version: number,
         public readonly createdAt: Date,
         public readonly updatedAt: Date,
+        public readonly paymentFlowTypes?: PaymentFlow[],
+        public readonly paymentMethodTypeIds?: string[],
         public readonly description?: string
     ) {
         // Invariant: Priority must be positive
@@ -34,13 +37,47 @@ export abstract class RoutingRule {
 
     /**
      * Determines if this rule matches the given routing context.
-     * Subclasses must implement rule-specific matching logic.
+     * 
+     * Template method pattern: base class handles flow & methodType filtering,
+     * child classes implement rule-specific conditions via matchesRuleSpecific().
+     * 
+     * Matching semantics:
+     * - If paymentFlowTypes is undefined or empty → rule applies to ALL flows
+     * - Otherwise → context.paymentFlowType MUST be included
+     * - Same logic for paymentMethodTypeIds
      * 
      * @param context The routing context to evaluate
      * @param eligibleGateways List of gateway IDs that passed eligibility filtering
      * @returns true if this rule matches the context
      */
-    abstract matches(context: RoutingContext, eligibleGateways: string[]): boolean;
+    matches(context: RoutingContext, eligibleGateways: string[]): boolean {
+        // Base class filtering: paymentFlowTypes
+        if (this.paymentFlowTypes && this.paymentFlowTypes.length > 0) {
+            if (!this.paymentFlowTypes.includes(context.paymentFlowType)) {
+                return false;
+            }
+        }
+
+        // Base class filtering: paymentMethodTypeIds
+        if (this.paymentMethodTypeIds && this.paymentMethodTypeIds.length > 0) {
+            if (!context.paymentMethodTypeId || !this.paymentMethodTypeIds.includes(context.paymentMethodTypeId)) {
+                return false;
+            }
+        }
+
+        // Delegate to child class for rule-specific matching logic
+        return this.matchesRuleSpecific(context, eligibleGateways);
+    }
+
+    /**
+     * Implements rule-specific matching logic.
+     * Child classes must implement this method to handle rule-specific conditions.
+     * 
+     * @param context The routing context to evaluate
+     * @param eligibleGateways List of gateway IDs that passed eligibility filtering
+     * @returns true if rule-specific conditions match
+     */
+    protected abstract matchesRuleSpecific(context: RoutingContext, eligibleGateways: string[]): boolean;
 
     /**
      * Selects a gateway from eligible gateways based on this rule.

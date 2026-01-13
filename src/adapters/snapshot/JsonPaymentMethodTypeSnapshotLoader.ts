@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { SnapshotLoader } from "../../application/shared/snapshot/SnapshotLoader";
-import { PaymentMethodType, PaymentMethodTypeStatus, IdentifierType } from "../../domain/payment_method_type/PaymentMethodType";
+import { PaymentMethodType, PaymentMethodTypeStatus, IdentifierType, IdentityRequirement, IdentityDefinition } from "../../domain/payment_method_type/PaymentMethodType";
 import { PaymentFlow } from "../../domain/payment_intent/PaymentIntent";
 
 /**
@@ -116,20 +116,60 @@ export class JsonPaymentMethodTypeSnapshotLoader implements SnapshotLoader<Payme
             throw new Error("allowedIdentifierTypes must be an array");
         }
         const allowedIdentifierTypes: IdentifierType[] = [];
-        const validIdentifierTypes: IdentifierType[] = ["UPI_VPA", "BANK_ACCOUNT", "EMAIL", "MOBILE", "CARD_INSTRUMENT"];
+        const validIdentifierTypes: IdentifierType[] = ["UPI_VPA", "BANK_ACCOUNT", "IFSC", "EMAIL", "MOBILE", "CARD_INSTRUMENT"];
         for (const identifierType of obj.allowedIdentifierTypes) {
             if (!validIdentifierTypes.includes(identifierType)) {
                 throw new Error(`Invalid identifierType: ${identifierType}. Must be one of: ${validIdentifierTypes.join(", ")}`);
             }
             allowedIdentifierTypes.push(identifierType);
         }
-        if (allowedIdentifierTypes.length === 0) {
+        if (allowedIdentifierTypes.length === 0  && obj.identityRequirement == "REQUIRED" ) {
             throw new Error("allowedIdentifierTypes must contain at least one identifier type");
         }
 
         // Validate supportsVariants
         if (typeof obj.supportsVariants !== "boolean") {
             throw new Error("supportsVariants must be a boolean");
+        }
+
+        // Validate identityRequirement
+        if (obj.identityRequirement !== "NONE" && obj.identityRequirement !== "OPTIONAL" && obj.identityRequirement !== "REQUIRED") {
+            throw new Error(`identityRequirement must be one of: NONE, OPTIONAL, REQUIRED. Got: ${obj.identityRequirement}`);
+        }
+
+        // Validate identityDefinition
+        if (
+            (obj.identityRequirement !== "NONE") &&
+            (typeof obj.identityDefinition !== "object" || obj.identityDefinition === null || Array.isArray(obj.identityDefinition))
+        ) {
+            throw new Error("identityDefinition must be an object");
+        }
+
+        const identityDefinitionObj = obj.identityDefinition as Record<string, unknown>;
+        if (identityDefinitionObj.type !== "DEFAULT" && identityDefinitionObj.type !== "CUSTOM") {
+            throw new Error(`identityDefinition.type must be either "DEFAULT" or "CUSTOM". Got: ${identityDefinitionObj.type}`);
+        }
+        let identifierTypes: IdentifierType[] | undefined;
+        if (identityDefinitionObj.identifierTypes !== undefined) {
+            if (!Array.isArray(identityDefinitionObj.identifierTypes)) {
+                throw new Error("identityDefinition.identifierTypes must be an array if provided");
+            }
+            identifierTypes = [];
+            for (const identifierType of identityDefinitionObj.identifierTypes) {
+                if (!validIdentifierTypes.includes(identifierType)) {
+                    throw new Error(`Invalid identityDefinition.identifierType: ${identifierType}. Must be one of: ${validIdentifierTypes.join(", ")}`);
+                }
+                identifierTypes.push(identifierType);
+            }
+        }
+        const identityDefinition: IdentityDefinition = {
+            type: identityDefinitionObj.type as "DEFAULT" | "CUSTOM",
+            identifierTypes: identifierTypes
+        };
+
+        // Validate executionMode
+        if (obj.executionMode !== "SDK_DRIVEN" && obj.executionMode !== "BACKEND_DRIVEN") {
+            throw new Error(`executionMode must be either "SDK_DRIVEN" or "BACKEND_DRIVEN". Got: ${obj.executionMode}`);
         }
 
         // Validate metadata (optional, but if present must be an object)
@@ -148,6 +188,9 @@ export class JsonPaymentMethodTypeSnapshotLoader implements SnapshotLoader<Payme
             supportedFlows,
             allowedIdentifierTypes,
             obj.supportsVariants,
+            obj.identityRequirement as IdentityRequirement,
+            identityDefinition,
+            obj.executionMode as "SDK_DRIVEN" | "BACKEND_DRIVEN",
             metadata
         );
     }

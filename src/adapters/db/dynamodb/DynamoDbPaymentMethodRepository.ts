@@ -21,6 +21,7 @@ interface PaymentMethodDataModel {
     variant?: string;
     status: string;
     reusable: boolean;
+    identity_key?: string;
     usage_count: number;
     last_used_at?: string;
     identifiers: Array<{
@@ -44,6 +45,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
         private readonly tableName: string,
         private readonly userFlowGsiName: string,
         private readonly identifierTableName: string,
+        private readonly identityKeyGsiName: string,
         private readonly logger: Logger
     ) {}
 
@@ -70,6 +72,19 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                 });
 
                 await this.dynamoDbClient.send(identifierCommand);
+            }
+
+            // Save identityKey mapping if present
+            if (paymentMethod.identityKey) {
+                const identityKeyCommand = new PutItemCommand({
+                    TableName: this.identifierTableName,
+                    Item: marshall({
+                        identifier_type_normalized_value: `IDENTITY_KEY#${paymentMethod.identityKey}`,
+                        payment_method_id: paymentMethod.paymentMethodId,
+                    }),
+                });
+
+                await this.dynamoDbClient.send(identityKeyCommand);
             }
         } catch (error) {
             this.logger.error(
@@ -200,6 +215,42 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
         }
     }
 
+    async findByIdentityKey(identityKey: string): Promise<PaymentMethod | null> {
+        const identifierKey = `IDENTITY_KEY#${identityKey}`;
+
+        const command = new GetItemCommand({
+            TableName: this.identifierTableName,
+            Key: marshall({
+                identifier_type_normalized_value: identifierKey,
+            }),
+        });
+
+        try {
+            const response = await this.dynamoDbClient.send(command);
+
+            if (!response.Item) {
+                return null;
+            }
+
+            const identifierDataModel = unmarshall(
+                response.Item
+            ) as PaymentMethodIdentifierDataModel;
+
+            return this.findById(identifierDataModel.payment_method_id);
+        } catch (error) {
+            this.logger.error(
+                "Failed to find payment method by identity key in DynamoDB",
+                error instanceof Error ? error : new Error(String(error)),
+                {
+                    identityKey,
+                    identifierTableName: this.identifierTableName,
+                    component: "DynamoDbPaymentMethodRepository",
+                }
+            );
+            throw error;
+        }
+    }
+
     async listByUser(
         userIdentifier: string,
         query: PaymentMethodQuery
@@ -312,6 +363,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             variant: paymentMethod.variant,
             status: paymentMethod.status,
             reusable: paymentMethod.reusable,
+            identity_key: paymentMethod.identityKey,
             usage_count: paymentMethod.usageCount,
             last_used_at: paymentMethod.lastUsedAt?.toISOString(),
             identifiers: paymentMethod.identifiers.map((id) => ({
@@ -334,6 +386,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             dataModel.variant,
             dataModel.status as "ACTIVE" | "INACTIVE" | "INVALID",
             dataModel.reusable,
+            dataModel.identity_key,
             dataModel.usage_count,
             dataModel.last_used_at ? new Date(dataModel.last_used_at) : undefined,
             dataModel.identifiers.map(
