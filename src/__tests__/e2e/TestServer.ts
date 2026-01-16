@@ -15,6 +15,7 @@ export class TestServer {
             this.container.makePayoutService,
             this.container.fetchTransactionStatusService,
             this.container.listTransactionsByUserService,
+            this.container.fetchPaymentCapabilitiesService,
             this.container.clock,
             this.container.idGenerator
         );

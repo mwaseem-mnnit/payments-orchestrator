@@ -21,6 +21,7 @@ import {PayinService} from "../application/services/PayinService";
 import {PayoutService} from "../application/services/PayoutService";
 import {FetchTransactionStatusService} from "../application/services/FetchTransactionStatusService";
 import {ListTransactionsByUserService} from "../application/services/ListTransactionsByUserService";
+import {FetchPaymentCapabilitiesService} from "../application/services/FetchPaymentCapabilitiesService";
 import {PaymentMethodService} from "../application/services/PaymentMethodService";
 import {PaymentIntentService} from "../application/services/PaymentIntentService";
 import {PaymentMethodGatewayMappingServiceImpl} from "../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingServiceImpl";
@@ -34,6 +35,7 @@ export class ApplicationContainer {
     readonly makePayoutService: PayoutService;
     readonly fetchTransactionStatusService: FetchTransactionStatusService;
     readonly listTransactionsByUserService: ListTransactionsByUserService;
+    readonly fetchPaymentCapabilitiesService: FetchPaymentCapabilitiesService;
     readonly clock: SystemClock;
     readonly idGenerator: UlidIdGenerator;
 
@@ -199,6 +201,12 @@ export class ApplicationContainer {
         this.listTransactionsByUserService = new ListTransactionsByUserService(
             this.paymentIntentRepository,
             this.paymentMethodRepository
+        );
+
+        this.fetchPaymentCapabilitiesService = new FetchPaymentCapabilitiesService(
+            paymentMethodTypeRepository,
+            this.paymentMethodRepository,
+            logger
         );
     }
 

@@ -11,6 +11,7 @@ const httpServer = new HttpServer(
     container.makePayoutService,
     container.fetchTransactionStatusService,
     container.listTransactionsByUserService,
+    container.fetchPaymentCapabilitiesService,
     container.clock,
     container.idGenerator
 );
