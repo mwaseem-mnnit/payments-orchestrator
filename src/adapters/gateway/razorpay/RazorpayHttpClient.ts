@@ -9,14 +9,14 @@ interface RazorpayConfig {
     timeoutMs: number;
 }
 
-interface CreateOrderRequest {
+interface RazorpayCreateOrderRequest {
     amount: number;
     currency: string;
     receipt?: string;
     notes?: Record<string, string>;
 }
 
-interface CreateOrderResponse {
+interface RazorpayCreateOrderResponse {
     id: string;
     entity: string;
     amount: number;
@@ -29,7 +29,7 @@ interface CreateOrderResponse {
     created_at: number;
 }
 
-interface FetchOrderResponse {
+interface RazorpayFetchOrderResponse {
     id: string;
     entity: string;
     amount: number;
@@ -42,7 +42,7 @@ interface FetchOrderResponse {
     created_at: number;
 }
 
-interface CreatePayoutRequest {
+interface RazorpayCreatePayoutRequest {
     account_number: string;
     fund_account_id: string;
     amount: number;
@@ -53,7 +53,7 @@ interface CreatePayoutRequest {
     queue_if_low_balance?: boolean;
 }
 
-interface CreatePayoutResponse {
+export interface RazorpayCreatePayoutResponse {
     id: string;
     entity: string;
     fund_account_id: string;
@@ -68,7 +68,7 @@ interface CreatePayoutResponse {
     created_at: number;
 }
 
-interface FetchPaymentResponse {
+interface RazorpayFetchPaymentResponse {
     id: string;
     entity: string;
     amount: number;
@@ -82,7 +82,7 @@ interface FetchPaymentResponse {
     created_at: number;
 }
 
-interface CreateContactRequest {
+interface RazorpayCreateContactRequest {
     name: string;
     email?: string;
     contact?: string;
@@ -91,13 +91,13 @@ interface CreateContactRequest {
     notes?: Record<string, string>;
 }
 
-interface CreateContactResponse {
+interface RazorpayCreateContactResponse {
     id: string;
     name: string;
     type: string;
 }
 
-interface CreateFundAccountVpaRequest {
+interface RazorpayCreateFundAccountVpaRequest {
     contact_id: string;
     account_type: "vpa";
     vpa: {
@@ -105,7 +105,7 @@ interface CreateFundAccountVpaRequest {
     };
 }
 
-interface CreateFundAccountBankRequest {
+interface RazorpayCreateFundAccountBankRequest {
     contact_id: string;
     account_type: "bank_account";
     bank_account: {
@@ -115,11 +115,11 @@ interface CreateFundAccountBankRequest {
     };
 }
 
-type CreateFundAccountRequest =
-    | CreateFundAccountVpaRequest
-    | CreateFundAccountBankRequest;
+type RazorpayCreateFundAccountRequest =
+    | RazorpayCreateFundAccountVpaRequest
+    | RazorpayCreateFundAccountBankRequest;
 
-interface CreateFundAccountResponse {
+interface RazorpayCreateFundAccountResponse {
     id: string;
     account_type: string;
 }
@@ -131,9 +131,9 @@ export class RazorpayHttpClient {
         private readonly config: RazorpayConfig
     ) {}
 
-    async createOrder(request: CreateOrderRequest): Promise<CreateOrderResponse> {
+    async createOrder(request: RazorpayCreateOrderRequest): Promise<RazorpayCreateOrderResponse> {
         try {
-            const response = await this.httpClient.request<CreateOrderResponse>({
+            const response = await this.httpClient.request<RazorpayCreateOrderResponse>({
                 method: "POST",
                 url: `${this.config.baseUrl}/orders`,
                 headers: this.buildHeaders(),
@@ -165,9 +165,9 @@ export class RazorpayHttpClient {
         }
     }
 
-    async fetchOrder(orderId: string): Promise<FetchOrderResponse> {
+    async fetchOrder(orderId: string): Promise<RazorpayFetchOrderResponse> {
         try {
-            const response = await this.httpClient.request<FetchOrderResponse>({
+            const response = await this.httpClient.request<RazorpayFetchOrderResponse>({
                 method: "GET",
                 url: `${this.config.baseUrl}/orders/${orderId}`,
                 headers: this.buildHeaders(),
@@ -200,9 +200,9 @@ export class RazorpayHttpClient {
         }
     }
 
-    async createPayout(request: CreatePayoutRequest): Promise<CreatePayoutResponse> {
+    async createPayout(request: RazorpayCreatePayoutRequest): Promise<RazorpayCreatePayoutResponse> {
         try {
-            const response = await this.httpClient.request<CreatePayoutResponse>({
+            const response = await this.httpClient.request<RazorpayCreatePayoutResponse>({
                 method: "POST",
                 url: `${this.config.baseUrl}/payouts`,
                 headers: this.buildHeaders(),
@@ -234,9 +234,9 @@ export class RazorpayHttpClient {
         }
     }
 
-    async fetchPayment(paymentId: string): Promise<FetchPaymentResponse> {
+    async fetchPayment(paymentId: string): Promise<RazorpayFetchPaymentResponse> {
         try {
-            const response = await this.httpClient.request<FetchPaymentResponse>({
+            const response = await this.httpClient.request<RazorpayFetchPaymentResponse>({
                 method: "GET",
                 url: `${this.config.baseUrl}/payments/${paymentId}`,
                 headers: this.buildHeaders(),
@@ -269,9 +269,9 @@ export class RazorpayHttpClient {
         }
     }
 
-    async fetchPayout(payoutId: string): Promise<CreatePayoutResponse> {
+    async fetchPayout(payoutId: string): Promise<RazorpayCreatePayoutResponse> {
         try {
-            const response = await this.httpClient.request<CreatePayoutResponse>({
+            const response = await this.httpClient.request<RazorpayCreatePayoutResponse>({
                 method: "GET",
                 url: `${this.config.baseUrl}/payouts/${payoutId}`,
                 headers: this.buildHeaders(),
@@ -305,11 +305,11 @@ export class RazorpayHttpClient {
     }
 
     async createContact(
-        request: CreateContactRequest
-    ): Promise<CreateContactResponse> {
+        request: RazorpayCreateContactRequest
+    ): Promise<RazorpayCreateContactResponse> {
         try {
             const response =
-                await this.httpClient.request<CreateContactResponse>({
+                await this.httpClient.request<RazorpayCreateContactResponse>({
                     method: "POST",
                     url: `${this.config.baseUrl}/contacts`,
                     headers: this.buildHeaders(),
@@ -342,11 +342,11 @@ export class RazorpayHttpClient {
     }
 
     async createFundAccount(
-        request: CreateFundAccountRequest
-    ): Promise<CreateFundAccountResponse> {
+        request: RazorpayCreateFundAccountRequest
+    ): Promise<RazorpayCreateFundAccountResponse> {
         try {
             const response =
-                await this.httpClient.request<CreateFundAccountResponse>({
+                await this.httpClient.request<RazorpayCreateFundAccountResponse>({
                     method: "POST",
                     url: `${this.config.baseUrl}/fund_accounts`,
                     headers: this.buildHeaders(),

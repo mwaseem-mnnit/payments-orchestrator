@@ -11,6 +11,9 @@ import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
 /**
  * Opaque context passed to gateway adapters.
  * Contents are interpreted ONLY by the adapter.
+ * GatewayRef is adapter-internal
+ * Webhook handling is part of the port
+ * fetchPaymentStatus is non-mutating
  */
 export class GatewayOperationContext {
     constructor(
@@ -66,7 +69,6 @@ export class FetchPaymentStatusRequest {
 export class CreatePayinResponse {
     constructor(
         public readonly gatewayTransactionReference: string,
-        public readonly updatedGatewayRefs?: Record<string, Record<string, string>>,
         public readonly rawGatewayResponse?: Record<string, unknown>
     ) {}
 }
@@ -74,7 +76,6 @@ export class CreatePayinResponse {
 export class CreatePayoutResponse {
     constructor(
         public readonly gatewayTransactionReference: string,
-        public readonly updatedGatewayRefs?: Record<string, Record<string, string>>,
         public readonly rawGatewayResponse?: Record<string, unknown>
     ) {}
 }

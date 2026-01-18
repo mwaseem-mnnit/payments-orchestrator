@@ -36,7 +36,6 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
 
         return new CreatePayinResponse(
             gatewayTransactionReference,
-            undefined,
             {
                 gatewayId,
                 status: initialStatus,
@@ -60,7 +59,6 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
 
         return new CreatePayoutResponse(
             gatewayTransactionReference,
-            undefined,
             {
                 gatewayId,
                 status: initialStatus,
