@@ -1,6 +1,7 @@
 import {PaymentFact} from "../../domain/payment_fact/PaymentFact";
 
 export interface GatewayWebhookPort {
+
     getGatewayId(): string;
 
     verifySignature(

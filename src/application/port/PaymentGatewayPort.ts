@@ -24,13 +24,14 @@ export class GatewayOperationContext {
 }
 
 export interface PaymentGatewayPort {
+
+    getGatewayId(): string;
+
     createPayin(
-        gatewayId: string,
         request: CreatePayinRequest
     ): Promise<CreatePayinResponse>;
 
     createPayout(
-        gatewayId: string,
         request: CreatePayoutRequest
     ): Promise<CreatePayoutResponse>;
 

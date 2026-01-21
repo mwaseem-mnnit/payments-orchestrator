@@ -14,19 +14,24 @@ interface GatewayTransactionState {
 }
 
 export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
-    private readonly transactions: Map<
-        string,
-        GatewayTransactionState
-    > = new Map();
-    private referenceCounter: number = 1;
+    private readonly transactions: Map<string, GatewayTransactionState>;
+    private gatewayId: string = "FAKE_GATEWAY";
+    private referenceCounter: number;
+
+
+    constructor() {
+        this.transactions = new Map();
+        this.referenceCounter = 1;
+    }
+
+    getGatewayId(): string {
+        return this.gatewayId;
+    }
 
     async createPayin(
-        gatewayId: string,
         _request: CreatePayinRequest
     ): Promise<CreatePayinResponse> {
-        const gatewayTransactionReference = this.generateGatewayReference(
-            gatewayId
-        );
+        const gatewayTransactionReference = this.generateGatewayReference();
         const initialStatus = "PENDING";
 
         this.transactions.set(gatewayTransactionReference, {
@@ -37,19 +42,16 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
         return new CreatePayinResponse(
             gatewayTransactionReference,
             {
-                gatewayId,
+                gatewayId: this.gatewayId,
                 status: initialStatus,
             }
         );
     }
 
     async createPayout(
-        gatewayId: string,
         _request: CreatePayoutRequest
     ): Promise<CreatePayoutResponse> {
-        const gatewayTransactionReference = this.generateGatewayReference(
-            gatewayId
-        );
+        const gatewayTransactionReference = this.generateGatewayReference();
         const initialStatus = "PENDING";
 
         this.transactions.set(gatewayTransactionReference, {
@@ -60,7 +62,7 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
         return new CreatePayoutResponse(
             gatewayTransactionReference,
             {
-                gatewayId,
+                gatewayId: this.gatewayId,
                 status: initialStatus,
             }
         );
@@ -89,8 +91,8 @@ export class FakePaymentGatewayAdapter implements PaymentGatewayPort {
         );
     }
 
-    private generateGatewayReference(gatewayId: string): string {
-        const reference = `fake_${gatewayId}_${this.referenceCounter}`;
+    private generateGatewayReference(): string {
+        const reference = `fake_${this.gatewayId}_${this.referenceCounter}`;
         this.referenceCounter++;
         return reference;
     }

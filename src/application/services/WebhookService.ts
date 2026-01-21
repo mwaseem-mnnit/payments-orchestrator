@@ -1,5 +1,5 @@
 import {PaymentFact} from "../../domain/payment_fact/PaymentFact";
-import {GatewayWebhookAdapterRegistry} from "../port/GatewayWebhookAdapterRegistry";
+import {GatewayAdapterRegistry} from "../port/GatewayAdapterRegistry";
 import {PaymentFactsRepository} from "../port/PaymentFactsRepository";
 import {Logger} from "../port/Logger";
 import {ProcessPaymentFactUpdateService} from "./ProcessPaymentFactUpdateService";
@@ -8,7 +8,7 @@ import {ValidationError} from "../../errors/ValidationError";
 
 export class WebhookService {
     constructor(
-        private readonly gatewayWebhookAdapterRegistry: GatewayWebhookAdapterRegistry,
+        private readonly gatewayWebhookAdapterRegistry: GatewayAdapterRegistry,
         private readonly paymentFactsRepository: PaymentFactsRepository,
         private readonly processPaymentFactUpdateService: ProcessPaymentFactUpdateService,
         private readonly logger: Logger
@@ -25,7 +25,7 @@ export class WebhookService {
 
         try {
             const adapter =
-                this.gatewayWebhookAdapterRegistry.getAdapter(gatewayId);
+                this.gatewayWebhookAdapterRegistry.getWebhookAdapter(gatewayId);
 
             if (!adapter) {
                 throw new ValidationError(

@@ -16,15 +16,20 @@ import {RazorpayCreatePayoutResponse, RazorpayHttpClient} from "./RazorpayHttpCl
 import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
 
 export class RazorpayGatewayAdapter implements PaymentGatewayPort {
+
     constructor(
+        private readonly gatewayId: string,
         private readonly razorpayHttpClient: RazorpayHttpClient,
         private readonly gatewayRefRepository: GatewayRefRepository,
         private readonly idGenerator: IdGenerator,
         private readonly clock: Clock
     ) {}
 
+    getGatewayId(): string {
+        return this.gatewayId;
+    }
+
     async createPayin(
-        _gatewayId: string,
         request: CreatePayinRequest
     ): Promise<CreatePayinResponse> {
         const paymentIntent = request.paymentIntent;
@@ -60,7 +65,6 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
     }
 
     async createPayout(
-        _gatewayId: string,
         request: CreatePayoutRequest
     ): Promise<CreatePayoutResponse> {
         const paymentIntent = request.paymentIntent;

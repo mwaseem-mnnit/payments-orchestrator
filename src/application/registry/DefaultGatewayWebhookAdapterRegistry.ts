@@ -1,23 +1,41 @@
 import {GatewayWebhookPort} from "../port/GatewayWebhookPort";
-import {GatewayWebhookAdapterRegistry} from "../port/GatewayWebhookAdapterRegistry";
+import {GatewayAdapterRegistry} from "../port/GatewayAdapterRegistry";
+import {PaymentGatewayPort} from "../port/PaymentGatewayPort";
 
 // Direct Date usage is forbidden. Use Clock.
 export class DefaultGatewayWebhookAdapterRegistry
-    implements GatewayWebhookAdapterRegistry
+    implements GatewayAdapterRegistry
 {
-    private readonly adapterMap: ReadonlyMap<string, GatewayWebhookPort>;
+    private readonly webhookAdapterMap: ReadonlyMap<string, GatewayWebhookPort>;
+    private readonly gatewayAdapterMap: ReadonlyMap<string, PaymentGatewayPort>;
 
-    constructor(adapters: ReadonlyArray<GatewayWebhookPort>) {
-        const map = new Map<string, GatewayWebhookPort>();
-
-        for (const adapter of adapters) {
-            map.set(adapter.getGatewayId(), adapter);
+    constructor(
+        webhookAdapters: ReadonlyArray<GatewayWebhookPort>,
+        gatewayAdapters: ReadonlyArray<PaymentGatewayPort>
+    ) {
+        /** register all Payment Webhook adapters **/
+        const webhookMap = new Map<string, GatewayWebhookPort>();
+        for (const adapter of webhookAdapters) {
+            webhookMap.set(adapter.getGatewayId(), adapter);
         }
 
-        this.adapterMap = map;
+        this.webhookAdapterMap = webhookMap;
+
+        /** register all Payment Gateway adapters **/
+        const gatewayMap = new Map<string, PaymentGatewayPort>();
+        for (const adapter of gatewayAdapters) {
+            gatewayMap.set(adapter.getGatewayId(), adapter);
+        }
+
+        this.gatewayAdapterMap = gatewayMap;
     }
 
-    getAdapter(gatewayId: string): GatewayWebhookPort | undefined {
-        return this.adapterMap.get(gatewayId);
+    getWebhookAdapter(gatewayId: string): GatewayWebhookPort | undefined {
+        return this.webhookAdapterMap.get(gatewayId);
     }
+
+    getGatewayAdapter(gatewayId: string): PaymentGatewayPort | undefined {
+        return this.gatewayAdapterMap.get(gatewayId);
+    }
+
 }

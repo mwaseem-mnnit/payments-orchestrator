@@ -2,7 +2,7 @@ import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
 import {CanonicalEvent} from "../../domain/events/CanonicalEvent";
 import {CreatePaymentIntentResult} from "../results/CreatePaymentIntentResult";
 import {GatewayRoutingPort, GatewayRoutingRequest} from "../port/GatewayRoutingPort";
-import {CreatePayinRequest, CreatePayinResponse, GatewayOperationContext, PaymentGatewayPort} from "../port/PaymentGatewayPort";
+import {CreatePayinRequest, CreatePayinResponse, GatewayOperationContext} from "../port/PaymentGatewayPort";
 import {EventPublisher} from "../port/EventPublisher";
 import {Clock} from "../port/Clock";
 import {IdGenerator} from "../port/IdGenerator";
@@ -11,8 +11,12 @@ import {PaymentMethodService} from "./PaymentMethodService";
 import {PaymentIntentService} from "./PaymentIntentService";
 import {CreatePayinCommand} from "../commands/PaymentCommand";
 import {GatewayHealthStatus} from "../../domain/routing/GatewayHealthStatus";
-import {PaymentMethodGatewayMappingService} from "../../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingService";
+import {
+    PaymentMethodGatewayMappingService
+} from "../../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingService";
 import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
+import {GatewayAdapterRegistry} from "../port/GatewayAdapterRegistry";
+import {ValidationError} from "../../errors/ValidationError";
 
 export class PayinService {
 
@@ -21,7 +25,7 @@ export class PayinService {
         private readonly paymentIntentService: PaymentIntentService,
         private readonly paymentMethodGatewayMappingService: PaymentMethodGatewayMappingService,
         private readonly gatewayRoutingPort: GatewayRoutingPort,
-        private readonly paymentGatewayPort: PaymentGatewayPort,
+        private readonly gatewayAdapterRegistry: GatewayAdapterRegistry,
         private readonly eventPublisher: EventPublisher,
         private readonly clock: Clock,
         private readonly idGenerator: IdGenerator,
@@ -97,7 +101,6 @@ export class PayinService {
 
         // Step 7: Execute gateway payin
         const gatewayOrderResponse = await this.executeGatewayPayin(
-            selectedGateway,
             intentWithGatewaySelected,
             paymentMethod,
             command.gatewayContext
@@ -376,12 +379,22 @@ export class PayinService {
      * Does not mutate PaymentIntent state.
      */
     private async executeGatewayPayin(
-        selectedGateway: string,
         paymentIntent: PaymentIntent,
         paymentMethod: PaymentMethod,
         gatewayContext?: Record<string, unknown>
     ): Promise<CreatePayinResponse> {
         const context = gatewayContext ? new GatewayOperationContext(gatewayContext) : undefined;
+        const gatewayId = paymentIntent.gateway;
+        if (!gatewayId) {
+            throw new ValidationError("PaymentIntent.gateway is required");
+        }
+
+        const adapter = this.gatewayAdapterRegistry.getGatewayAdapter(gatewayId);
+        if (!adapter) {
+            throw new ValidationError(
+                `No gateway adapter registered for gatewayId ${gatewayId}`
+            );
+        }
 
         const createPayinRequest = new CreatePayinRequest(
             paymentIntent,
@@ -389,10 +402,7 @@ export class PayinService {
             context
         );
 
-        return await this.paymentGatewayPort.createPayin(
-            selectedGateway,
-            createPayinRequest
-        );
+        return await adapter.createPayin(createPayinRequest);
     }
 
     /**

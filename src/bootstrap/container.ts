@@ -1,7 +1,6 @@
 import {DynamoDBClient} from "@aws-sdk/client-dynamodb";
 import {SystemClock} from "../adapters/system/SystemClock";
 import {UlidIdGenerator} from "../adapters/system/UlidIdGenerator";
-import {InMemoryPaymentIntentRepository} from "../adapters/inmemory/InMemoryPaymentIntentRepository";
 import {InMemoryPaymentMethodRepository} from "../adapters/inmemory/InMemoryPaymentMethodRepository";
 import {PaymentMethodTypeRepositoryImpl} from "../adapters/inmemory/PaymentMethodTypeRepositoryImpl";
 import {PaymentGatewayRepositoryImpl} from "../adapters/inmemory/PaymentGatewayRepositoryImpl";
@@ -13,14 +12,15 @@ import {JsonPaymentMethodTypeSnapshotLoader} from "../adapters/snapshot/JsonPaym
 import {JsonPaymentGatewaySnapshotLoader} from "../adapters/snapshot/JsonPaymentGatewaySnapshotLoader";
 import {JsonMappingRuleSnapshotLoader} from "../adapters/snapshot/JsonMappingRuleSnapshotLoader";
 import {JsonRoutingRuleSnapshotLoader} from "../adapters/snapshot/JsonRoutingRuleSnapshotLoader";
-import {InMemoryIdempotencyStore} from "../adapters/inmemory/InMemoryIdempotencyStore";
 import {InMemoryEventPublisher} from "../adapters/inmemory/InMemoryEventPublisher";
-import {FakePaymentGatewayAdapter} from "../adapters/fake/FakePaymentGatewayAdapter";
-import {FakeGatewayRoutingAdapter} from "../adapters/fake/FakeGatewayRoutingAdapter";
 import {StdoutJsonLogger} from "../adapters/logging/StdoutJsonLogger";
 import {DynamoDbPaymentFactsRepository} from "../adapters/db/dynamodb/DynamoDbPaymentFactsRepository";
 import {DynamoDbPaymentIntentRepository} from "../adapters/db/dynamodb/DynamoDbPaymentIntentRepository";
+import {DynamoDbGatewayRefRepository} from "../adapters/db/dynamodb/DynamoDbGatewayRefRepository";
 import {RazorpayWebhookAdapter} from "../adapters/gateway/razorpay/RazorpayWebhookAdapter";
+import {RazorpayGatewayAdapter} from "../adapters/gateway/razorpay/RazorpayGatewayAdapter";
+import {RazorpayHttpClient} from "../adapters/gateway/razorpay/RazorpayHttpClient";
+import {AxiosHttpClient} from "../adapters/http/AxiosHttpClient";
 import {PayinService} from "../application/services/PayinService";
 import {PayoutService} from "../application/services/PayoutService";
 import {FetchTransactionStatusService} from "../application/services/FetchTransactionStatusService";
@@ -40,6 +40,21 @@ import {PaymentGateway} from "../domain/gateway/PaymentGateway";
 import {MappingRule} from "../domain/payment_method_gateway_mapping/MappingRule";
 import {RoutingRule} from "../domain/routing/RoutingRule";
 import {Logger} from "../application/port/Logger";
+import {PaymentIntentRepository} from "../application/port/PaymentIntentRepository";
+import {IdempotencyStore} from "../application/port/IdempotencyStore";
+import {EventPublisher} from "../application/port/EventPublisher";
+import {DynamoDbIdempotencyStore} from "../adapters/db/dynamodb/DynamoDbIdempotencyStore";
+import {GatewayRoutingAdapter} from "../adapters/routing/GatewayRoutingAdapter";
+import {PaymentMethodTypeRepository} from "../domain/payment_method_type/PaymentMethodTypeRepository";
+import {PaymentGatewayRepository} from "../domain/gateway/PaymentGatewayRepository";
+import {MappingRuleRepository} from "../domain/payment_method_gateway_mapping/MappingRuleRepository";
+import {RoutingRuleRepository} from "../domain/routing/RoutingRuleRepository";
+import {GatewayRefRepository} from "../application/port/GatewayRefRepository";
+import {PaymentMethodRepository} from "../application/port/PaymentMethodRepository";
+import {PaymentFactsRepository} from "../application/port/PaymentFactsRepository";
+import {
+    PaymentMethodGatewayMappingService
+} from "../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingService";
 
 export class ApplicationContainer {
     readonly payinService: PayinService;
@@ -52,19 +67,27 @@ export class ApplicationContainer {
     readonly idGenerator: UlidIdGenerator;
     readonly logger: Logger;
 
-    private readonly paymentIntentRepository: InMemoryPaymentIntentRepository;
-    private readonly paymentMethodRepository: InMemoryPaymentMethodRepository;
-    private readonly idempotencyStore: InMemoryIdempotencyStore;
-    private readonly eventPublisher: InMemoryEventPublisher;
-    private readonly paymentGateway: FakePaymentGatewayAdapter;
-    private readonly paymentFactsRepository: DynamoDbPaymentFactsRepository;
-    private readonly paymentIntentWebhookRepository: DynamoDbPaymentIntentRepository;
+    private readonly paymentMethodTypeRepository: PaymentMethodTypeRepository;
+    private readonly paymentGatewayRepository: PaymentGatewayRepository;
+    private readonly mappingRuleRepository: MappingRuleRepository;
+    private readonly routingRuleRepository: RoutingRuleRepository;
+    private readonly paymentIntentRepository: PaymentIntentRepository;
+    private readonly paymentMethodRepository: PaymentMethodRepository;
+    private readonly idempotencyStore: IdempotencyStore;
+    private readonly eventPublisher: EventPublisher;
+    private readonly paymentFactsRepository: PaymentFactsRepository;
+    private readonly gatewayRefRepository: GatewayRefRepository;
     
     // Snapshot refresh engines (for lifecycle management)
     private readonly paymentMethodTypeRefreshEngine: GenericRefreshEngine<PaymentMethodType>;
     private readonly paymentGatewayRefreshEngine: GenericRefreshEngine<PaymentGateway>;
     private readonly mappingRuleRefreshEngine: GenericRefreshEngine<MappingRule>;
     private readonly routingRuleRefreshEngine: GenericRefreshEngine<RoutingRule>;
+
+    private readonly paymentMethodGatewayMappingService: PaymentMethodGatewayMappingService;
+    private readonly paymentMethodService: PaymentMethodService;
+    private readonly paymentIntentService: PaymentIntentService;
+    private readonly processPaymentFactUpdateService: ProcessPaymentFactUpdateService;
 
     constructor() {
         // System Adapters
@@ -94,7 +117,7 @@ export class ApplicationContainer {
             paymentMethodTypeRefreshIntervalMs,
             this.logger
         );
-        const paymentMethodTypeRepository = new PaymentMethodTypeRepositoryImpl(
+        this.paymentMethodTypeRepository = new PaymentMethodTypeRepositoryImpl(
             paymentMethodTypeSnapshotStore
         );
         
@@ -113,7 +136,7 @@ export class ApplicationContainer {
             paymentGatewayRefreshIntervalMs,
             this.logger
         );
-        const paymentGatewayRepository = new PaymentGatewayRepositoryImpl(
+         this.paymentGatewayRepository = new PaymentGatewayRepositoryImpl(
             paymentGatewaySnapshotStore
         );
         
@@ -132,7 +155,7 @@ export class ApplicationContainer {
             mappingRuleRefreshIntervalMs,
             this.logger
         );
-        const mappingRuleRepository = new MappingRuleRepositoryImpl(
+         this.mappingRuleRepository = new MappingRuleRepositoryImpl(
             mappingRuleSnapshotStore
         );
         
@@ -151,22 +174,32 @@ export class ApplicationContainer {
             routingRuleRefreshIntervalMs,
             this.logger
         );
-        const routingRuleRepository = new RoutingRuleRepositoryImpl(
+
+        this.routingRuleRepository = new RoutingRuleRepositoryImpl(
             routingRuleSnapshotStore
         );
-        
-        this.paymentIntentRepository = new InMemoryPaymentIntentRepository(
-            this.paymentMethodRepository
-        );
-        this.idempotencyStore = new InMemoryIdempotencyStore();
+
         this.eventPublisher = new InMemoryEventPublisher();
-        this.paymentGateway = new FakePaymentGatewayAdapter();
-        const gatewayRouting = new FakeGatewayRoutingAdapter();
 
         const dynamoDbClient = new DynamoDBClient({
             region: process.env.AWS_REGION || "us-east-1",
             endpoint: process.env.DYNAMODB_ENDPOINT || undefined
         });
+
+        this.idempotencyStore = new DynamoDbIdempotencyStore(
+            dynamoDbClient,
+            process.env.IDEMPOTENCY_STORE_TABLE_NAME || "",
+            this.clock,
+            this.logger
+        );
+
+        this.paymentIntentRepository = new DynamoDbPaymentIntentRepository(
+            dynamoDbClient,
+            process.env.PAYMENT_INTENTS_TABLE_NAME || "",
+            process.env.PAYMENT_INTENTS_GSI_NAME || "",
+            this.clock,
+            this.logger
+        );
 
         this.paymentFactsRepository = new DynamoDbPaymentFactsRepository(
             dynamoDbClient,
@@ -177,82 +210,57 @@ export class ApplicationContainer {
             this.logger
         );
 
-        this.paymentIntentWebhookRepository = new DynamoDbPaymentIntentRepository(
+        const httpClient = new AxiosHttpClient(this.logger);
+        const razorpayHttpClient = new RazorpayHttpClient(
+            httpClient,
+            this.logger,
+            {
+                baseUrl: process.env.RAZORPAY_BASE_URL || "",
+                keyId: process.env.RAZORPAY_KEY_ID || "",
+                keySecret: process.env.RAZORPAY_KEY_SECRET || "",
+                timeoutMs: 10000
+            }
+        );
+
+        this.gatewayRefRepository = new DynamoDbGatewayRefRepository(
             dynamoDbClient,
-            process.env.PAYMENT_INTENTS_TABLE_NAME || "",
-            process.env.PAYMENT_INTENTS_GSI_NAME || "",
+            process.env.GATEWAY_REF_TABLE_NAME || "",
+            process.env.GATEWAY_REF_GSI_NAME || "",
             this.clock,
             this.logger
+        );
+
+        const gatewayRouting = new GatewayRoutingAdapter(
+            this.routingRuleRepository,
+            this.clock
+        );
+
+
+        const razorpayGatewayAdapter = new RazorpayGatewayAdapter(
+            "RAZORPAY",
+            razorpayHttpClient,
+            this.gatewayRefRepository,
+            this.idGenerator,
+            this.clock
         );
 
         // Domain Services
-        const paymentMethodGatewayMappingService = new PaymentMethodGatewayMappingServiceImpl(
-            mappingRuleRepository
+        this.paymentMethodGatewayMappingService = new PaymentMethodGatewayMappingServiceImpl(
+            this.mappingRuleRepository
         );
 
         // Application Services
-        const paymentMethodService = new PaymentMethodService(
+        this.paymentMethodService = new PaymentMethodService(
             this.paymentMethodRepository,
-            paymentMethodTypeRepository,
+            this.paymentMethodTypeRepository,
             this.idGenerator,
             this.logger
         );
 
-        const paymentIntentService = new PaymentIntentService(
+        this.paymentIntentService = new PaymentIntentService(
             this.paymentIntentRepository,
             this.idempotencyStore,
             this.idGenerator,
-            this.clock,
-            this.logger
-        );
-
-        this.payinService = new PayinService(
-            paymentMethodService,
-            paymentIntentService,
-            paymentMethodGatewayMappingService,
-            gatewayRouting,
-            this.paymentGateway,
-            this.eventPublisher,
-            this.clock,
-            this.idGenerator,
-            this.logger
-        );
-
-        this.makePayoutService = new PayoutService(
-            paymentMethodService,
-            paymentIntentService,
-            paymentMethodGatewayMappingService,
-            gatewayRouting,
-            this.paymentGateway,
-            this.eventPublisher,
-            this.clock,
-            this.idGenerator,
-            this.logger
-        );
-
-        this.fetchTransactionStatusService = new FetchTransactionStatusService(
-            this.paymentIntentRepository,
-            this.paymentMethodRepository
-        );
-
-        this.listTransactionsByUserService = new ListTransactionsByUserService(
-            this.paymentIntentRepository,
-            this.paymentMethodRepository
-        );
-
-        this.fetchPaymentCapabilitiesService = new FetchPaymentCapabilitiesService(
-            paymentMethodTypeRepository,
-            this.paymentMethodRepository,
-            this.clock,
-            this.logger
-        );
-
-        const paymentStateMachine = new DefaultPaymentStateMachine();
-        const processPaymentFactUpdateService = new ProcessPaymentFactUpdateService(
-            this.paymentFactsRepository,
-            this.paymentIntentWebhookRepository,
-            paymentStateMachine,
-            this.eventPublisher,
             this.clock,
             this.logger
         );
@@ -265,14 +273,67 @@ export class ApplicationContainer {
             this.logger
         );
 
-        const webhookAdapterRegistry = new DefaultGatewayWebhookAdapterRegistry([
-            razorpayWebhookAdapter
-        ]);
+        const webhookAdapterRegistry = new DefaultGatewayWebhookAdapterRegistry(
+            [razorpayWebhookAdapter],
+            [razorpayGatewayAdapter]
+        );
+
+        this.payinService = new PayinService(
+            this.paymentMethodService,
+            this.paymentIntentService,
+            this.paymentMethodGatewayMappingService,
+            gatewayRouting,
+            webhookAdapterRegistry,
+            this.eventPublisher,
+            this.clock,
+            this.idGenerator,
+            this.logger
+        );
+
+        this.makePayoutService = new PayoutService(
+            this.paymentMethodService,
+            this.paymentIntentService,
+            this.paymentMethodGatewayMappingService,
+            gatewayRouting,
+            webhookAdapterRegistry,
+            this.eventPublisher,
+            this.clock,
+            this.idGenerator,
+            this.logger
+        );
+
+
+        this.fetchTransactionStatusService = new FetchTransactionStatusService(
+            this.paymentIntentRepository,
+            this.paymentMethodRepository
+        );
+
+        this.listTransactionsByUserService = new ListTransactionsByUserService(
+            this.paymentIntentRepository,
+            this.paymentMethodRepository
+        );
+
+        this.fetchPaymentCapabilitiesService = new FetchPaymentCapabilitiesService(
+            this.paymentMethodTypeRepository,
+            this.paymentMethodRepository,
+            this.clock,
+            this.logger
+        );
+
+        const paymentStateMachine = new DefaultPaymentStateMachine();
+        this.processPaymentFactUpdateService = new ProcessPaymentFactUpdateService(
+            this.paymentFactsRepository,
+            this.paymentIntentRepository,
+            paymentStateMachine,
+            this.eventPublisher,
+            this.clock,
+            this.logger
+        );
 
         this.webhookService = new WebhookService(
             webhookAdapterRegistry,
             this.paymentFactsRepository,
-            processPaymentFactUpdateService,
+            this.processPaymentFactUpdateService,
             this.logger
         );
     }
@@ -307,11 +368,7 @@ export class ApplicationContainer {
     }
 
     reset(): void {
-        this.paymentIntentRepository.clear();
-        this.idempotencyStore.clear();
-        this.eventPublisher.clear();
-        this.paymentGateway.clear();
-        
+
         // Stop periodic refresh on reset
         this.paymentMethodTypeRefreshEngine.stop();
         this.paymentGatewayRefreshEngine.stop();

@@ -1,21 +1,22 @@
-import { PaymentIntent } from "../../domain/payment_intent/PaymentIntent";
-import { PaymentMethod } from "../../domain/payment_method/PaymentMethod";
-import { CanonicalEvent } from "../../domain/events/CanonicalEvent";
-import { PaymentCommand } from "../commands/PaymentCommand";
-import { MakePayoutResult } from "../results/MakePayoutResult";
+import {PaymentIntent} from "../../domain/payment_intent/PaymentIntent";
+import {PaymentMethod} from "../../domain/payment_method/PaymentMethod";
+import {CanonicalEvent} from "../../domain/events/CanonicalEvent";
+import {PaymentCommand} from "../commands/PaymentCommand";
+import {MakePayoutResult} from "../results/MakePayoutResult";
+import {GatewayRoutingPort, GatewayRoutingRequest} from "../port/GatewayRoutingPort";
+import {CreatePayoutRequest, CreatePayoutResponse, GatewayOperationContext} from "../port/PaymentGatewayPort";
+import {EventPublisher} from "../port/EventPublisher";
+import {Clock} from "../port/Clock";
+import {IdGenerator} from "../port/IdGenerator";
+import {Logger} from "../port/Logger";
+import {PaymentMethodService} from "./PaymentMethodService";
+import {PaymentIntentService} from "./PaymentIntentService";
+import {GatewayHealthStatus} from "../../domain/routing/GatewayHealthStatus";
 import {
-    GatewayRoutingPort,
-    GatewayRoutingRequest
-} from "../port/GatewayRoutingPort";
-import { CreatePayoutRequest, CreatePayoutResponse, GatewayOperationContext, PaymentGatewayPort } from "../port/PaymentGatewayPort";
-import { EventPublisher } from "../port/EventPublisher";
-import { Clock } from "../port/Clock";
-import { IdGenerator } from "../port/IdGenerator";
-import { Logger } from "../port/Logger";
-import { PaymentMethodService } from "./PaymentMethodService";
-import { PaymentIntentService } from "./PaymentIntentService";
-import { GatewayHealthStatus } from "../../domain/routing/GatewayHealthStatus";
-import { PaymentMethodGatewayMappingService } from "../../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingService";
+    PaymentMethodGatewayMappingService
+} from "../../domain/payment_method_gateway_mapping/PaymentMethodGatewayMappingService";
+import {GatewayAdapterRegistry} from "../port/GatewayAdapterRegistry";
+import {ValidationError} from "../../errors/ValidationError";
 
 export class PayoutService {
     constructor(
@@ -23,7 +24,7 @@ export class PayoutService {
         private readonly paymentIntentService: PaymentIntentService,
         private readonly paymentMethodGatewayMappingService: PaymentMethodGatewayMappingService,
         private readonly gatewayRoutingPort: GatewayRoutingPort,
-        private readonly paymentGatewayPort: PaymentGatewayPort,
+        private readonly gatewayAdapterRegistry: GatewayAdapterRegistry,
         private readonly eventPublisher: EventPublisher,
         private readonly clock: Clock,
         private readonly idGenerator: IdGenerator,
@@ -101,7 +102,6 @@ export class PayoutService {
 
         // Step 7: Execute gateway payout
         const gatewayOrderResponse = await this.executeGatewayPayout(
-            selectedGateway,
             intentWithGatewaySelected,
             paymentMethod,
             command.gatewayContext
@@ -392,12 +392,22 @@ export class PayoutService {
      * Does not mutate PaymentIntent state.
      */
     private async executeGatewayPayout(
-        selectedGateway: string,
         paymentIntent: PaymentIntent,
         paymentMethod: PaymentMethod,
         gatewayContext?: Record<string, unknown>
     ): Promise<CreatePayoutResponse> {
         const context = gatewayContext ? new GatewayOperationContext(gatewayContext) : undefined;
+        const gatewayId = paymentIntent.gateway;
+        if (!gatewayId) {
+            throw new ValidationError("PaymentIntent.gateway is required");
+        }
+
+        const adapter = this.gatewayAdapterRegistry.getGatewayAdapter(gatewayId);
+        if (!adapter) {
+            throw new ValidationError(
+                `No gateway adapter registered for gatewayId ${gatewayId}`
+            );
+        }
 
         const createPayoutRequest = new CreatePayoutRequest(
             paymentIntent,
@@ -405,10 +415,7 @@ export class PayoutService {
             context
         );
 
-        return await this.paymentGatewayPort.createPayout(
-            selectedGateway,
-            createPayoutRequest
-        );
+        return await adapter.createPayout(createPayoutRequest);
     }
 
     /**
