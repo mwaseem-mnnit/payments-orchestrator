@@ -22,7 +22,30 @@ export class StdoutJsonLogger implements Logger {
         private readonly environment: string
     ) {}
 
+    info(
+        message: string,
+        metadata?: Record<string, any>
+    ): void {
+        this.writeLog("INFO", message, undefined, metadata);
+    }
+
+    warn(
+        message: string,
+        metadata?: Record<string, any>
+    ): void {
+        this.writeLog("WARN", message, undefined, metadata);
+    }
+
     error(
+        message: string,
+        error?: Error,
+        metadata?: Record<string, any>
+    ): void {
+        this.writeLog("ERROR", message, error, metadata);
+    }
+
+    private writeLog(
+        level: LogLevel,
         message: string,
         error?: Error,
         metadata?: Record<string, any>
@@ -31,7 +54,7 @@ export class StdoutJsonLogger implements Logger {
             const now = this.clock.now();
             const payload: LogPayload = {
                 timestamp: now.toISOString(),
-                level: "ERROR",
+                level: level,
                 message,
                 service: this.service,
                 environment: this.environment,
@@ -42,7 +65,6 @@ export class StdoutJsonLogger implements Logger {
                 payload.errorMessage = error.message;
             }
 
-            // Initialize context with RequestContext from RequestContextStore if exists
             const requestContext = requestContextStore.getContext();
             const context: Record<string, any> = {};
 
@@ -51,12 +73,10 @@ export class StdoutJsonLogger implements Logger {
                 context.requestStartTime = requestContext.requestStartTime.toISOString();
             }
 
-            // Shallow merge metadata into context if exists
             if (metadata) {
                 Object.assign(context, metadata);
             }
 
-            // Only add context field if there's any context data
             if (Object.keys(context).length > 0) {
                 payload.context = context;
             }

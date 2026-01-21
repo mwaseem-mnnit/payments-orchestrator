@@ -1,3 +1,5 @@
+
+// Direct Date usage is forbidden. Use Clock.
 export class DateTimeUtils {
     static isBefore(dateA: Date, dateB: Date): boolean {
         return dateA.getTime() < dateB.getTime();

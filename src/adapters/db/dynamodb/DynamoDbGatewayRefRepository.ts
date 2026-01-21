@@ -6,6 +6,8 @@ import {
 import {marshall, unmarshall} from "@aws-sdk/util-dynamodb";
 import {GatewayRef, GatewayRefStatus} from "../../../domain/gateway_ref/GatewayRef";
 import {GatewayRefRepository} from "../../../application/port/GatewayRefRepository";
+import {Clock} from "../../../application/port/Clock";
+import {Logger} from "../../../application/port/Logger";
 
 interface GatewayRefDataModel {
     gateway_ref_id: string;
@@ -22,7 +24,9 @@ export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
     constructor(
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
-        private readonly gsi1Name: string
+        private readonly gsi1Name: string,
+        private readonly clock: Clock,
+        private readonly logger: Logger
     ) {}
 
     async findByPaymentMethodAndGateway(
@@ -97,8 +101,8 @@ export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
             dataModel.normalized_key,
             dataModel.metadata,
             dataModel.status as GatewayRefStatus,
-            new Date(dataModel.created_at),
-            new Date(dataModel.updated_at)
+            this.clock.fromIsoString(dataModel.created_at),
+            this.clock.fromIsoString(dataModel.updated_at)
         );
     }
 }

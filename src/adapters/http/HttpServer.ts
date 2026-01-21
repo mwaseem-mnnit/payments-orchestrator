@@ -1,17 +1,20 @@
 import Fastify, { FastifyInstance } from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import { PaymentsController } from "./controllers/PaymentsController";
-import { HealthController } from "./controllers/HealthController";
-import { FetchPaymentCapabilitiesController } from "./controllers/FetchPaymentCapabilitiesController";
-import { PayinService } from "../../application/services/PayinService";
-import { PayoutService } from "../../application/services/PayoutService";
-import { FetchTransactionStatusService } from "../../application/services/FetchTransactionStatusService";
-import { ListTransactionsByUserService } from "../../application/services/ListTransactionsByUserService";
-import { FetchPaymentCapabilitiesService } from "../../application/services/FetchPaymentCapabilitiesService";
-import { Clock } from "../../application/port/Clock";
-import { IdGenerator } from "../../application/port/IdGenerator";
-import { RequestSetupMiddleware } from "./middleware/RequestSetupMiddleware";
+import {PaymentsController} from "./controllers/PaymentsController";
+import {HealthController} from "./controllers/HealthController";
+import {FetchPaymentCapabilitiesController} from "./controllers/FetchPaymentCapabilitiesController";
+import {WebhookController} from "./controllers/WebhookController";
+import {PayinService} from "../../application/services/PayinService";
+import {PayoutService} from "../../application/services/PayoutService";
+import {FetchTransactionStatusService} from "../../application/services/FetchTransactionStatusService";
+import {ListTransactionsByUserService} from "../../application/services/ListTransactionsByUserService";
+import {FetchPaymentCapabilitiesService} from "../../application/services/FetchPaymentCapabilitiesService";
+import {Clock} from "../../application/port/Clock";
+import {IdGenerator} from "../../application/port/IdGenerator";
+import {RequestSetupMiddleware} from "./middleware/RequestSetupMiddleware";
+import {Logger} from "../../application/port/Logger";
+import {WebhookService} from "../../application/services/WebhookService";
 
 export class HttpServer {
     private readonly fastify: FastifyInstance;
@@ -19,6 +22,7 @@ export class HttpServer {
     private readonly paymentsController: PaymentsController;
     private readonly healthController: HealthController;
     private readonly fetchPaymentCapabilitiesController: FetchPaymentCapabilitiesController;
+    private readonly webhookController: WebhookController;
 
     constructor(
         payinService: PayinService,
@@ -26,12 +30,22 @@ export class HttpServer {
         fetchTransactionStatusService: FetchTransactionStatusService,
         listTransactionsByUserService: ListTransactionsByUserService,
         fetchPaymentCapabilitiesService: FetchPaymentCapabilitiesService,
+        webhookService: WebhookService,
         clock: Clock,
-        idGenerator: IdGenerator
+        idGenerator: IdGenerator,
+        logger: Logger
     ) {
         this.fastify = Fastify({
             logger: true,
         });
+
+        this.fastify.addContentTypeParser(
+            "application/octet-stream",
+            {parseAs: "buffer"},
+            (_request, body, done) => {
+                done(null, body);
+            }
+        );
 
         this.requestSetupMiddleware = new RequestSetupMiddleware(
             clock,
@@ -41,9 +55,16 @@ export class HttpServer {
             payinService,
             payoutService,
             fetchTransactionStatusService,
-            listTransactionsByUserService
+            listTransactionsByUserService,
+            clock,
+            logger
         );
         this.healthController = new HealthController();
+        this.webhookController = new WebhookController(
+            webhookService,
+            logger,
+            clock
+        );
         this.fetchPaymentCapabilitiesController =
             new FetchPaymentCapabilitiesController(fetchPaymentCapabilitiesService);
 
@@ -114,6 +135,28 @@ export class HttpServer {
             this.fetchPaymentCapabilitiesController.fetchPaymentCapabilities.bind(
                 this.fetchPaymentCapabilitiesController
             )
+        );
+
+        // Raw request body is required for webhook signature verification.
+        // Do NOT parse body before passing to WebhookController.
+        this.fastify.post(
+            "/webhooks/razorpay",
+            {
+                onRequest: async (request) => {
+                    request.headers["content-type"] = "application/octet-stream";
+                }
+            },
+            (request, reply) => {
+                const requestWithGateway = Object.assign(request, {
+                    params: {gatewayId: "RAZORPAY"}
+                });
+                return this.webhookController.handleWebhook(
+                    requestWithGateway as typeof request & {
+                        params: {gatewayId: string};
+                    },
+                    reply
+                );
+            }
         );
     }
 

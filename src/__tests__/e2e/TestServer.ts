@@ -16,8 +16,10 @@ export class TestServer {
             this.container.fetchTransactionStatusService,
             this.container.listTransactionsByUserService,
             this.container.fetchPaymentCapabilitiesService,
+            this.container.webhookService,
             this.container.clock,
-            this.container.idGenerator
+            this.container.idGenerator,
+            this.container.logger
         );
         this.baseUrl = `http://localhost:${port}`;
     }

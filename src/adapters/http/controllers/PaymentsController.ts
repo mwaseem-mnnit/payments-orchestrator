@@ -12,6 +12,8 @@ import {
 import {FetchTransactionStatusCommand} from "../../../application/commands/FetchTransactionStatusCommand";
 import {ListTransactionsByUserCommand} from "../../../application/commands/ListTransactionsByUserCommand";
 import {OperationType, PaymentFlow, PaymentIntentState} from "../../../domain/payment_intent/PaymentIntent";
+import {Clock} from "../../../application/port/Clock";
+import {Logger} from "../../../application/port/Logger";
 
 interface CreatePaymentIntentRequestBody {
     transactionId: string;
@@ -62,7 +64,9 @@ export class PaymentsController {
         private readonly payinService: PayinService,
         private readonly makePayoutService: PayoutService,
         private readonly fetchTransactionStatusService: FetchTransactionStatusService,
-        private readonly listTransactionsByUserService: ListTransactionsByUserService
+        private readonly listTransactionsByUserService: ListTransactionsByUserService,
+        private readonly clock: Clock,
+        private readonly logger: Logger
     ) {}
 
     async createPaymentPayin(
@@ -145,8 +149,8 @@ export class PaymentsController {
         reply: FastifyReply
     ): Promise<void> {
         const query = request.query;
-        const fromDate = query.fromDate ? new Date(query.fromDate) : undefined;
-        const toDate = query.toDate ? new Date(query.toDate) : undefined;
+        const fromDate = query.fromDate ? this.clock.fromIsoString(query.fromDate) : undefined;
+        const toDate = query.toDate ? this.clock.fromIsoString(query.toDate) : undefined;
         const minAmount = query.minAmount
             ? parseFloat(query.minAmount)
             : undefined;

@@ -12,8 +12,10 @@ const httpServer = new HttpServer(
     container.fetchTransactionStatusService,
     container.listTransactionsByUserService,
     container.fetchPaymentCapabilitiesService,
+    container.webhookService,
     container.clock,
-    container.idGenerator
+    container.idGenerator,
+    container.logger
 );
 
 async function start() {

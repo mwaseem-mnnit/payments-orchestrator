@@ -12,6 +12,7 @@ import {PaymentMethodQuery, PaymentMethodRepository,} from "../../../application
 import {PaginatedResult} from "../../../application/shared/pagination/PaginatedResult";
 import {Logger} from "../../../application/port/Logger";
 import {IdentifierType} from "../../../domain/payment_method_type/PaymentMethodType";
+import {Clock} from "../../../application/port/Clock";
 
 interface PaymentMethodDataModel {
     payment_method_id: string;
@@ -46,6 +47,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
         private readonly userFlowGsiName: string,
         private readonly identifierTableName: string,
         private readonly identityKeyGsiName: string,
+        private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
 
@@ -388,7 +390,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             dataModel.reusable,
             dataModel.identity_key,
             dataModel.usage_count,
-            dataModel.last_used_at ? new Date(dataModel.last_used_at) : undefined,
+            dataModel.last_used_at ? this.clock.fromIsoString(dataModel.last_used_at) : undefined,
             dataModel.identifiers.map(
                 (id) =>
                     new PaymentMethodIdentifier(

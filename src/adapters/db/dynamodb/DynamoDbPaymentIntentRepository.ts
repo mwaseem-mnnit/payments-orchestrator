@@ -10,6 +10,7 @@ import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
 import {PaymentIntentRepository, TransactionQuery,} from "../../../application/port/PaymentIntentRepository";
 import {PaginatedResult} from "../../../application/shared/pagination/PaginatedResult";
 import {Logger} from "../../../application/port/Logger";
+import {Clock} from "../../../application/port/Clock";
 
 interface PaymentIntentDataModel {
     transaction_id: string;
@@ -39,6 +40,7 @@ export class DynamoDbPaymentIntentRepository
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
         private readonly gsiName: string,
+        private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
 
@@ -410,8 +412,8 @@ export class DynamoDbPaymentIntentRepository
             dataModel.amount,
             dataModel.currency,
             dataModel.state as any,
-            new Date(dataModel.created_at),
-            new Date(dataModel.updated_at),
+            this.clock.fromIsoString(dataModel.created_at),
+            this.clock.fromIsoString(dataModel.updated_at),
             dataModel.transaction_id,
             dataModel.payment_method_id,
             dataModel.gateway,

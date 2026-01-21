@@ -11,6 +11,7 @@ import {
 } from "../results/FetchPaymentCapabilitiesResult";
 import {IdentifierMaskingUtils} from "./IdentifierMaskingUtils";
 import {PaymentMethodType} from "../../domain/payment_method_type/PaymentMethodType";
+import {Clock} from "../port/Clock";
 
 /**
  * Service for fetching payment capabilities.
@@ -24,6 +25,7 @@ export class FetchPaymentCapabilitiesService {
     constructor(
         private readonly paymentMethodTypeRepository: PaymentMethodTypeRepository,
         private readonly paymentMethodRepository: PaymentMethodRepository,
+        private readonly clock: Clock,
         private readonly logger: Logger
     ) {
         if (!paymentMethodTypeRepository) {
@@ -107,7 +109,7 @@ export class FetchPaymentCapabilitiesService {
                 if (!b.lastUsedAt) {
                     return -1; // a comes before b
                 }
-                return new Date(b.lastUsedAt).getTime() - new Date(a.lastUsedAt).getTime();
+                return this.clock.fromIsoString(b.lastUsedAt).getTime() - this.clock.fromIsoString(a.lastUsedAt).getTime();
             });
 
         return {

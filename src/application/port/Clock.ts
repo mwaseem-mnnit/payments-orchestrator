@@ -6,4 +6,10 @@
 
 export interface Clock {
     now(): Date;
+
+    fromEpochMillis(epochMillis: number): Date;
+
+    toEpochMillis(date: Date): number;
+
+    fromIsoString(isoString: string): Date;
 }
