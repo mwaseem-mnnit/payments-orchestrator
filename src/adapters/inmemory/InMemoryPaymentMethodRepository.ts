@@ -3,12 +3,17 @@ import {PaymentFlow} from "../../domain/payment_intent/PaymentIntent";
 import {PaymentMethodQuery, PaymentMethodRepository,} from "../../application/port/PaymentMethodRepository";
 import {PaginatedResult} from "../../application/shared/pagination/PaginatedResult";
 import {IdentifierType} from "../../domain/payment_method_type/PaymentMethodType";
+import {Clock} from "../../application/port/Clock";
+import {SystemClock} from "../system/SystemClock";
 
 export class InMemoryPaymentMethodRepository implements PaymentMethodRepository {
     private readonly byId: Map<string, PaymentMethod> = new Map();
     private readonly byUserAndFlow: Map<string, PaymentMethod[]> = new Map();
-    private readonly byIdentifier: Map<string, PaymentMethod> = new Map();
+    private readonly byIdentifier: Map<string, Array<{paymentMethodId: string; createdAt: number}>> = new Map();
     private readonly byIdentityKey: Map<string, PaymentMethod> = new Map();
+    private identifierSequence = 1;
+
+    constructor(private readonly clock: Clock = new SystemClock()) {}
 
     async save(paymentMethod: PaymentMethod): Promise<void> {
         this.byId.set(paymentMethod.paymentMethodId, paymentMethod);
@@ -27,7 +32,15 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
 
         for (const identifier of paymentMethod.identifiers) {
             const identifierKey = `${identifier.identifierType}:${identifier.normalizedValue}`;
-            this.byIdentifier.set(identifierKey, paymentMethod);
+            const entries = this.byIdentifier.get(identifierKey) || [];
+            const baseCreatedAt = this.clock.toEpochMillis(this.clock.now());
+            const createdAt = baseCreatedAt + this.identifierSequence;
+            entries.push({
+                paymentMethodId: paymentMethod.paymentMethodId,
+                createdAt,
+            });
+            this.identifierSequence += 1;
+            this.byIdentifier.set(identifierKey, entries);
         }
 
         if (paymentMethod.identityKey) {
@@ -49,14 +62,84 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
 
     async findByIdentifier(
         identifierType: IdentifierType,
-        normalizedValue: string
-    ): Promise<PaymentMethod | null> {
+        normalizedValue: string,
+        query: PaymentMethodQuery
+    ): Promise<PaginatedResult<PaymentMethod>> {
         const key = `${identifierType}:${normalizedValue}`;
-        return this.byIdentifier.get(key) || null;
+        const entries = (this.byIdentifier.get(key) || []).slice();
+        entries.sort((a, b) => b.createdAt - a.createdAt);
+
+        let startIndex = 0;
+        if (query.pageToken) {
+            const tokenStart = this.resolveIdentifierPageToken(
+                key,
+                query.pageToken,
+                entries
+            );
+            if (tokenStart !== undefined) {
+                startIndex = tokenStart;
+            }
+        }
+
+        const endIndex = startIndex + query.pageSize;
+        const pageEntries = entries.slice(startIndex, endIndex);
+        const items = pageEntries
+            .map((entry) => this.byId.get(entry.paymentMethodId))
+            .filter((paymentMethod): paymentMethod is PaymentMethod =>
+                Boolean(paymentMethod)
+            );
+
+        let nextPageToken: string | undefined;
+        if (endIndex < entries.length && pageEntries.length > 0) {
+            const lastEntry = pageEntries[pageEntries.length - 1];
+            const tokenData = {
+                identifier_type_normalized_value: key,
+                created_at: lastEntry.createdAt,
+            };
+            const tokenBuffer = Buffer.from(
+                JSON.stringify(tokenData),
+                "utf-8"
+            );
+            nextPageToken = tokenBuffer.toString("base64");
+        }
+
+        return {
+            items,
+            pageSize: query.pageSize,
+            pageToken: query.pageToken,
+            nextPageToken,
+        };
     }
 
     async findByIdentityKey(identityKey: string): Promise<PaymentMethod | null> {
         return this.byIdentityKey.get(identityKey) || null;
+    }
+
+    private resolveIdentifierPageToken(
+        key: string,
+        pageToken: string,
+        entries: Array<{paymentMethodId: string; createdAt: number}>
+    ): number | undefined {
+        try {
+            const tokenBuffer = Buffer.from(pageToken, "base64");
+            const tokenData = JSON.parse(tokenBuffer.toString("utf-8")) as {
+                identifier_type_normalized_value?: string;
+                created_at?: number;
+            };
+            if (tokenData.identifier_type_normalized_value !== key) {
+                return undefined;
+            }
+            const lastCreatedAt = tokenData.created_at;
+            if (typeof lastCreatedAt !== "number") {
+                return undefined;
+            }
+            const nextIndex = entries.findIndex(
+                (entry) => entry.createdAt < lastCreatedAt
+            );
+            return nextIndex === -1 ? entries.length : nextIndex;
+        } catch {
+            return undefined;
+        }
     }
 
     async listByUser(

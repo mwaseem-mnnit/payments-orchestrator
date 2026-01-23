@@ -1,5 +1,6 @@
 import {ApplicationContainer} from "../../bootstrap/container";
 import {HttpServer} from "../../adapters/http/HttpServer";
+import {TestBindings} from "../../application/bindings/TestBindings";
 
 export class TestServer {
     private readonly container: ApplicationContainer;
@@ -9,7 +10,7 @@ export class TestServer {
 
     constructor(port: number = 0) {
         this.port = port;
-        this.container = new ApplicationContainer();
+        this.container = new ApplicationContainer(TestBindings.create());
         this.httpServer = new HttpServer(
             this.container.payinService,
             this.container.makePayoutService,

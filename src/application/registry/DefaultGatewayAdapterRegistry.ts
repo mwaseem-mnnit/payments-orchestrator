@@ -3,7 +3,7 @@ import {GatewayAdapterRegistry} from "../port/GatewayAdapterRegistry";
 import {PaymentGatewayPort} from "../port/PaymentGatewayPort";
 
 // Direct Date usage is forbidden. Use Clock.
-export class DefaultGatewayWebhookAdapterRegistry
+export class DefaultGatewayAdapterRegistry
     implements GatewayAdapterRegistry
 {
     private readonly webhookAdapterMap: ReadonlyMap<string, GatewayWebhookPort>;

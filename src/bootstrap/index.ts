@@ -1,10 +1,12 @@
+import "dotenv/config";
 import { HttpServer } from "../adapters/http/HttpServer";
 import { ApplicationContainer } from "./container";
+import { ProductionBindings } from "../application/bindings/ProductionBindings";
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const host = process.env.HOST || "0.0.0.0";
 
-const container = new ApplicationContainer();
+const container = new ApplicationContainer(ProductionBindings.create());
 
 const httpServer = new HttpServer(
     container.payinService,

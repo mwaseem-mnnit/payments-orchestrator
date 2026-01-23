@@ -1,4 +1,6 @@
 import {
+    AttributeValue,
+    BatchGetItemCommand,
     DynamoDBClient,
     GetItemCommand,
     PutItemCommand,
@@ -24,7 +26,7 @@ interface PaymentMethodDataModel {
     reusable: boolean;
     identity_key?: string;
     usage_count: number;
-    last_used_at?: string;
+    last_used_at?: number;
     identifiers: Array<{
         payment_method_id: string;
         identifier_type: string;
@@ -32,11 +34,12 @@ interface PaymentMethodDataModel {
         normalized_value: string;
     }>;
     user_id_gsi?: string; // GSI partition key
-    payment_flow_gsi?: string; // GSI sort key
+    last_used_at_gsi?: number; // GSI sort key
 }
 
 interface PaymentMethodIdentifierDataModel {
     identifier_type_normalized_value: string; // PK: identifier_type#normalized_value
+    created_at: number; // SK: created_at (epoch millis)
     payment_method_id: string;
 }
 
@@ -46,7 +49,6 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
         private readonly tableName: string,
         private readonly userFlowGsiName: string,
         private readonly identifierTableName: string,
-        private readonly identityKeyGsiName: string,
         private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
@@ -62,9 +64,11 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             await this.dynamoDbClient.send(command);
 
             // Save identifiers in separate table for findByIdentifier
+            const createdAt = this.clock.toEpochMillis(this.clock.now());
             for (const identifier of paymentMethod.identifiers) {
                 const identifierDataModel: PaymentMethodIdentifierDataModel = {
                     identifier_type_normalized_value: `${identifier.identifierType}#${identifier.normalizedValue}`,
+                    created_at: createdAt,
                     payment_method_id: paymentMethod.paymentMethodId,
                 };
 
@@ -82,6 +86,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                     TableName: this.identifierTableName,
                     Item: marshall({
                         identifier_type_normalized_value: `IDENTITY_KEY#${paymentMethod.identityKey}`,
+                        created_at: createdAt,
                         payment_method_id: paymentMethod.paymentMethodId,
                     }),
                 });
@@ -142,7 +147,8 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             TableName: this.tableName,
             IndexName: this.userFlowGsiName,
             KeyConditionExpression:
-                "user_id_gsi = :userIdentifier AND payment_flow_gsi = :paymentFlow",
+                "user_id_gsi = :userIdentifier",
+            FilterExpression: "payment_flow = :paymentFlow",
             ExpressionAttributeValues: marshall({
                 ":userIdentifier": userIdentifier,
                 ":paymentFlow": paymentFlow,
@@ -179,29 +185,55 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
 
     async findByIdentifier(
         identifierType: IdentifierType,
-        normalizedValue: string
-    ): Promise<PaymentMethod | null> {
+        normalizedValue: string,
+        query: PaymentMethodQuery
+    ): Promise<PaginatedResult<PaymentMethod>> {
         const identifierKey = `${identifierType}#${normalizedValue}`;
-
-        const command = new GetItemCommand({
+        const exclusiveStartKey = this.parseIdentifierPageToken(query.pageToken);
+        const command = new QueryCommand({
             TableName: this.identifierTableName,
-            Key: marshall({
-                identifier_type_normalized_value: identifierKey,
+            KeyConditionExpression:
+                "identifier_type_normalized_value = :identifierKey",
+            ExpressionAttributeValues: marshall({
+                ":identifierKey": identifierKey,
             }),
+            Limit: query.pageSize,
+            ExclusiveStartKey: exclusiveStartKey,
+            ScanIndexForward: false,
         });
 
         try {
             const response = await this.dynamoDbClient.send(command);
 
-            if (!response.Item) {
-                return null;
-            }
+            const identifierItems = response.Items
+                ? (response.Items.map((item) =>
+                    unmarshall(item)
+                ) as PaymentMethodIdentifierDataModel[])
+                : [];
 
-            const identifierDataModel = unmarshall(
-                response.Item
-            ) as PaymentMethodIdentifierDataModel;
+            const paymentMethodIds = identifierItems.map(
+                (item) => item.payment_method_id
+            );
+            const paymentMethods = await this.batchGetPaymentMethods(
+                paymentMethodIds
+            );
 
-            return this.findById(identifierDataModel.payment_method_id);
+            const items = paymentMethodIds
+                .map((paymentMethodId) => paymentMethods.get(paymentMethodId))
+                .filter((paymentMethod): paymentMethod is PaymentMethod =>
+                    Boolean(paymentMethod)
+                );
+
+            const nextPageToken = this.createIdentifierNextPageToken(
+                response.LastEvaluatedKey
+            );
+
+            return {
+                items,
+                pageSize: query.pageSize,
+                pageToken: query.pageToken,
+                nextPageToken,
+            };
         } catch (error) {
             this.logger.error(
                 "Failed to find payment method by identifier in DynamoDB",
@@ -209,6 +241,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                 {
                     identifierType,
                     normalizedValue,
+                    pageSize: query.pageSize,
                     identifierTableName: this.identifierTableName,
                     component: "DynamoDbPaymentMethodRepository",
                 }
@@ -219,23 +252,26 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
 
     async findByIdentityKey(identityKey: string): Promise<PaymentMethod | null> {
         const identifierKey = `IDENTITY_KEY#${identityKey}`;
-
-        const command = new GetItemCommand({
+        const command = new QueryCommand({
             TableName: this.identifierTableName,
-            Key: marshall({
-                identifier_type_normalized_value: identifierKey,
+            KeyConditionExpression:
+                "identifier_type_normalized_value = :identifierKey",
+            ExpressionAttributeValues: marshall({
+                ":identifierKey": identifierKey,
             }),
+            Limit: 1,
+            ScanIndexForward: false,
         });
 
         try {
             const response = await this.dynamoDbClient.send(command);
 
-            if (!response.Item) {
+            if (!response.Items || response.Items.length === 0) {
                 return null;
             }
 
             const identifierDataModel = unmarshall(
-                response.Item
+                response.Items[0]
             ) as PaymentMethodIdentifierDataModel;
 
             return this.findById(identifierDataModel.payment_method_id);
@@ -251,6 +287,75 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             );
             throw error;
         }
+    }
+
+    private parseIdentifierPageToken(
+        pageToken?: string
+    ): Record<string, AttributeValue> | undefined {
+        if (!pageToken) {
+            return undefined;
+        }
+
+        try {
+            const tokenBuffer = Buffer.from(pageToken, "base64");
+            const tokenData = JSON.parse(
+                tokenBuffer.toString("utf-8")
+            ) as Record<string, AttributeValue>;
+            if (!tokenData || typeof tokenData !== "object") {
+                return undefined;
+            }
+            return tokenData;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private createIdentifierNextPageToken(
+        lastEvaluatedKey?: Record<string, AttributeValue>
+    ): string | undefined {
+        if (!lastEvaluatedKey) {
+            return undefined;
+        }
+
+        const tokenBuffer = Buffer.from(
+            JSON.stringify(lastEvaluatedKey),
+            "utf-8"
+        );
+        return tokenBuffer.toString("base64");
+    }
+
+    private async batchGetPaymentMethods(
+        paymentMethodIds: string[]
+    ): Promise<Map<string, PaymentMethod>> {
+        const uniqueIds = Array.from(new Set(paymentMethodIds));
+        if (uniqueIds.length === 0) {
+            return new Map();
+        }
+
+        const command = new BatchGetItemCommand({
+            RequestItems: {
+                [this.tableName]: {
+                    Keys: uniqueIds.map((paymentMethodId) =>
+                        marshall({
+                            payment_method_id: paymentMethodId,
+                        })
+                    ),
+                },
+            },
+        });
+
+        const response = await this.dynamoDbClient.send(command);
+        const items = response.Responses?.[this.tableName] || [];
+        const dataModels = items.map((item) =>
+            unmarshall(item)
+        ) as PaymentMethodDataModel[];
+
+        const results = new Map<string, PaymentMethod>();
+        for (const dataModel of dataModels) {
+            results.set(dataModel.payment_method_id, this.toDomain(dataModel));
+        }
+
+        return results;
     }
 
     async listByUser(
@@ -327,16 +432,17 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     }
 
     async incrementUsage(paymentMethodId: string, timestamp: Date): Promise<void> {
+        const lastUsedAt = this.clock.toEpochMillis(timestamp);
         const command = new UpdateItemCommand({
             TableName: this.tableName,
             Key: marshall({
                 payment_method_id: paymentMethodId,
             }),
             UpdateExpression:
-                "SET usage_count = usage_count + :inc, last_used_at = :timestamp",
+                "SET usage_count = usage_count + :inc, last_used_at = :timestamp, last_used_at_gsi = :timestamp",
             ExpressionAttributeValues: marshall({
                 ":inc": 1,
-                ":timestamp": timestamp.toISOString(),
+                ":timestamp": lastUsedAt,
             }),
         });
 
@@ -357,6 +463,9 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     }
 
     private toDataModel(paymentMethod: PaymentMethod): PaymentMethodDataModel {
+        const lastUsedAt = paymentMethod.lastUsedAt
+            ? this.clock.toEpochMillis(paymentMethod.lastUsedAt)
+            : undefined;
         return {
             payment_method_id: paymentMethod.paymentMethodId,
             user_identifier: paymentMethod.userIdentifier,
@@ -367,7 +476,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             reusable: paymentMethod.reusable,
             identity_key: paymentMethod.identityKey,
             usage_count: paymentMethod.usageCount,
-            last_used_at: paymentMethod.lastUsedAt?.toISOString(),
+            last_used_at: lastUsedAt,
             identifiers: paymentMethod.identifiers.map((id) => ({
                 payment_method_id: id.paymentMethodId,
                 identifier_type: id.identifierType,
@@ -375,7 +484,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                 normalized_value: id.normalizedValue,
             })),
             user_id_gsi: paymentMethod.userIdentifier,
-            payment_flow_gsi: paymentMethod.paymentFlow,
+            last_used_at_gsi: lastUsedAt,
         };
     }
 
@@ -390,7 +499,9 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
             dataModel.reusable,
             dataModel.identity_key,
             dataModel.usage_count,
-            dataModel.last_used_at ? this.clock.fromIsoString(dataModel.last_used_at) : undefined,
+            dataModel.last_used_at !== undefined
+                ? this.clock.fromEpochMillis(dataModel.last_used_at)
+                : undefined,
             dataModel.identifiers.map(
                 (id) =>
                     new PaymentMethodIdentifier(

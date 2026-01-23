@@ -25,8 +25,9 @@ export interface PaymentMethodRepository {
 
     findByIdentifier(
         identifierType: IdentifierType,
-        normalizedValue: string
-    ): Promise<PaymentMethod | null>;
+        normalizedValue: string,
+        query: PaymentMethodQuery
+    ): Promise<PaginatedResult<PaymentMethod>>;
 
     findByIdentityKey(identityKey: string): Promise<PaymentMethod | null>;
 
