@@ -25,6 +25,10 @@ interface PaymentFactDataModel {
     metadata: Record<string, unknown>;
     processing_outcome: string;
     idempotency_key: string;
+    transaction_id_gsi: string;
+    gateway_transaction_reference_gsi?: string;
+    idempotency_key_gsi: string;
+    received_at_gsi: number;
 }
 
 export class DynamoDbPaymentFactsRepository implements PaymentFactsRepository {
@@ -178,7 +182,11 @@ export class DynamoDbPaymentFactsRepository implements PaymentFactsRepository {
             received_at: fact.receivedAt.getTime(),
             metadata: fact.metadata,
             processing_outcome: fact.processingOutcome,
-            idempotency_key: idempotencyKey
+            idempotency_key: idempotencyKey,
+            transaction_id_gsi: fact.transactionId,
+            gateway_transaction_reference_gsi: fact.gatewayTransactionReference,
+            idempotency_key_gsi: idempotencyKey,
+            received_at_gsi: fact.receivedAt.getTime(),
         };
     }
 

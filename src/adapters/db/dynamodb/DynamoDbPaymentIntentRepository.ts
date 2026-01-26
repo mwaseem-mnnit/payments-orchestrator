@@ -31,6 +31,11 @@ interface PaymentIntentDataModel {
     failure_reason?: string;
     additional_attributes?: Record<string, any>;
     user_identifier?: string; // GSI partition key
+    transaction_id_gsi?: string;
+    payment_method_id_gsi?: string;
+    gateway_transaction_reference_gsi?: string;
+    user_identifier_gsi?: string;
+    created_at_gsi: number;
 }
 
 export class DynamoDbPaymentIntentRepository
@@ -364,6 +369,10 @@ export class DynamoDbPaymentIntentRepository
             updated_at: paymentIntent.updatedAt.toISOString(),
             payment_method_id: paymentIntent.paymentMethodId,
             user_identifier: userIdentifier,
+            transaction_id_gsi: paymentIntent.transactionId,
+            payment_method_id_gsi: paymentIntent.paymentMethodId,
+            user_identifier_gsi: userIdentifier || undefined,
+            created_at_gsi: paymentIntent.createdAt.getTime(),
         };
 
         if (paymentIntent.gateway) {
@@ -372,6 +381,8 @@ export class DynamoDbPaymentIntentRepository
 
         if (paymentIntent.gatewayTransactionReference) {
             dataModel.gateway_transaction_reference =
+                paymentIntent.gatewayTransactionReference;
+            dataModel.gateway_transaction_reference_gsi =
                 paymentIntent.gatewayTransactionReference;
         }
 

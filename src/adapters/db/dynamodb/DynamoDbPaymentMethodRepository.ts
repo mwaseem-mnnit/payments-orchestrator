@@ -41,6 +41,7 @@ interface PaymentMethodIdentifierDataModel {
     identifier_type_normalized_value: string; // PK: identifier_type#normalized_value
     created_at: number; // SK: created_at (epoch millis)
     payment_method_id: string;
+    payment_method_id_gsi: string;
 }
 
 export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository {
@@ -70,6 +71,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                     identifier_type_normalized_value: `${identifier.identifierType}#${identifier.normalizedValue}`,
                     created_at: createdAt,
                     payment_method_id: paymentMethod.paymentMethodId,
+                    payment_method_id_gsi: paymentMethod.paymentMethodId,
                 };
 
                 const identifierCommand = new PutItemCommand({
@@ -88,6 +90,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                         identifier_type_normalized_value: `IDENTITY_KEY#${paymentMethod.identityKey}`,
                         created_at: createdAt,
                         payment_method_id: paymentMethod.paymentMethodId,
+                        payment_method_id_gsi: paymentMethod.paymentMethodId,
                     }),
                 });
 

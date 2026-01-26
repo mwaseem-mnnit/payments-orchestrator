@@ -18,6 +18,9 @@ interface GatewayRefDataModel {
     status: string;
     created_at: string;
     updated_at: string;
+    payment_method_id_gsi: string;
+    normalized_key_gsi: string;
+    created_at_gsi: number;
 }
 
 export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
@@ -90,6 +93,9 @@ export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
             status: gatewayRef.status,
             created_at: gatewayRef.createdAt.toISOString(),
             updated_at: gatewayRef.updatedAt.toISOString(),
+            payment_method_id_gsi: gatewayRef.paymentMethodId,
+            normalized_key_gsi: gatewayRef.normalizedKey,
+            created_at_gsi: gatewayRef.createdAt.getTime(),
         };
     }
 

@@ -11,5 +11,20 @@ coverage/
 *.log
 .idea
 authority
+infra-authority
 .github
 docs/
+# Terraform state
+terraform.tfstate
+terraform.tfstate.backup
+
+# Terraform plans
+*.tfplan
+dev.tfplan
+dynamodb.tfplan
+
+# Terraform working directory
+.terraform/
+
+# Terraform dependency lock file (intentionally ignored here)
+.terraform.lock.hcl
