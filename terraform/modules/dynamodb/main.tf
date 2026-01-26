@@ -1,10 +1,16 @@
 locals {
-  payment_intent_table_name            = (var.use_existing_tables ? var.existing_table_names.payment_intent : "${var.name_prefix}-payment-intent")
-  payment_method_table_name            = (var.use_existing_tables ? var.existing_table_names.payment_method : "${var.name_prefix}-payment-method")
-  payment_method_identifier_table_name = (var.use_existing_tables ? var.existing_table_names.payment_method_identifier : "${var.name_prefix}-payment-method-identifier")
-  gateway_ref_table_name               = (var.use_existing_tables ? var.existing_table_names.gateway_ref : "${var.name_prefix}-gateway-ref")
-  payment_fact_table_name              = (var.use_existing_tables ? var.existing_table_names.payment_fact : "${var.name_prefix}-payment-fact")
-  idempotency_table_name               = (var.use_existing_tables ? var.existing_table_names.idempotency : "${var.name_prefix}-idempotency")
+  payment_intent_table_name = (var.use_existing_tables ? var.existing_table_names.payment_intent :
+    "${var.name_prefix}-payment-intent")
+  payment_method_table_name = (var.use_existing_tables ? var.existing_table_names.payment_method :
+    "${var.name_prefix}-payment-method")
+  payment_method_identifier_table_name = (var.use_existing_tables ? var.existing_table_names.payment_method_identifier :
+    "${var.name_prefix}-payment-method-identifier")
+  gateway_ref_table_name = (var.use_existing_tables ? var.existing_table_names.gateway_ref :
+    "${var.name_prefix}-gateway-ref")
+  payment_fact_table_name = (var.use_existing_tables ? var.existing_table_names.payment_fact :
+    "${var.name_prefix}-payment-fact")
+  idempotency_table_name = (var.use_existing_tables ? var.existing_table_names.idempotency :
+    "${var.name_prefix}-idempotency")
 }
 
 data "aws_dynamodb_table" "payment_intent" {
@@ -84,7 +90,11 @@ resource "aws_dynamodb_table" "payment_intent" {
     name            = "GSI_payment_method"
     hash_key        = "payment_method_id_gsi"
     range_key       = "created_at_gsi"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = [
+      "gateway_id",
+      "status"
+    ]
   }
 
   global_secondary_index {
@@ -98,7 +108,11 @@ resource "aws_dynamodb_table" "payment_intent" {
     name            = "GSI_user_identifier"
     hash_key        = "user_identifier_gsi"
     range_key       = "created_at_gsi"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = [
+      "state", "payer_reference", "payee_reference", "payment_flow_type",
+      "operation_type", "payment_method"
+    ]
   }
 
   server_side_encryption {
@@ -137,7 +151,10 @@ resource "aws_dynamodb_table" "payment_method" {
     name            = "GSI_user_usage"
     hash_key        = "user_id_gsi"
     range_key       = "last_used_at_gsi"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = [
+      "payment_flow"
+    ]
   }
 
   server_side_encryption {
@@ -220,7 +237,10 @@ resource "aws_dynamodb_table" "gateway_ref" {
     name            = "GSI_payment_method"
     hash_key        = "payment_method_id_gsi"
     range_key       = "created_at_gsi"
-    projection_type = "KEYS_ONLY"
+    projection_type = "INCLUDE"
+    non_key_attributes = [
+      "gateway_id", "status", "normalized_key", "metadata"
+    ]
   }
 
   global_secondary_index {

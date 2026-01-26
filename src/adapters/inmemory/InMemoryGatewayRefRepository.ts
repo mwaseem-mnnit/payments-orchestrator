@@ -28,7 +28,7 @@ export class InMemoryGatewayRefRepository implements GatewayRefRepository {
         return null;
     }
 
-    async save(gatewayRef: GatewayRef): Promise<void> {
+    async save(gatewayRef: GatewayRef): Promise<GatewayRef> {
         this.byGatewayRefId.set(gatewayRef.gatewayRefId, gatewayRef);
         
         const lookupKey = this.buildLookupKey(
@@ -48,6 +48,7 @@ export class InMemoryGatewayRefRepository implements GatewayRefRepository {
             // This enforces uniqueness: only one ACTIVE per (paymentMethodId, gatewayId)
             this.byPaymentMethodAndGateway.set(lookupKey, gatewayRef);
         }
+        return gatewayRef;
     }
 
     async update(gatewayRef: GatewayRef): Promise<void> {

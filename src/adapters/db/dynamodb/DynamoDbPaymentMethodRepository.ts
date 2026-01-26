@@ -45,10 +45,11 @@ interface PaymentMethodIdentifierDataModel {
 }
 
 export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository {
+    private static readonly USER_USAGE_GSI_NAME = "GSI_user_usage";
+
     constructor(
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
-        private readonly userFlowGsiName: string,
         private readonly identifierTableName: string,
         private readonly clock: Clock,
         private readonly logger: Logger
@@ -58,7 +59,9 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
         const dataModel = this.toDataModel(paymentMethod);
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
         });
 
         try {
@@ -148,7 +151,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
     ): Promise<PaymentMethod[]> {
         const command = new QueryCommand({
             TableName: this.tableName,
-            IndexName: this.userFlowGsiName,
+            IndexName: DynamoDbPaymentMethodRepository.USER_USAGE_GSI_NAME,
             KeyConditionExpression:
                 "user_id_gsi = :userIdentifier",
             FilterExpression: "payment_flow = :paymentFlow",
@@ -178,7 +181,7 @@ export class DynamoDbPaymentMethodRepository implements PaymentMethodRepository 
                     userIdentifier: userIdentifier,
                     paymentFlow,
                     tableName: this.tableName,
-                    gsiName: this.userFlowGsiName,
+                    gsiName: DynamoDbPaymentMethodRepository.USER_USAGE_GSI_NAME,
                     component: "DynamoDbPaymentMethodRepository",
                 }
             );

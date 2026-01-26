@@ -7,7 +7,7 @@
     "version": 1,
     "createdAt": "2024-01-01T00:00:00.000Z",
     "updatedAt": "2024-01-01T00:00:00.000Z",
-    "paymentMethodTypeIds": ["UPI"],
+    "paymentMethodTypeIds": ["UPI_PAYIN"],
     "paymentFlowTypes": ["PAYIN"],
     "slabs": [
       {
@@ -53,15 +53,15 @@
     "paymentFlowTypes": ["PAYIN"]
   },
   {
-    "ruleId": "BANK_ACCOUNT_PAYOUT_FIXED_CASHFREE_001",
+    "ruleId": "UPI_PAYOUT_FIXED_RAZORPAY_001",
     "ruleType": "FIXED_GATEWAY",
     "priority": 1,
     "status": "ACTIVE",
     "version": 1,
     "createdAt": "2024-01-01T00:00:00.000Z",
     "updatedAt": "2024-01-01T00:00:00.000Z",
-    "gatewayId": "CASHFREE",
-    "paymentMethodTypeIds": ["BANK_ACCOUNT"],
+    "gatewayId": "RAZORPAY",
+    "paymentMethodTypeIds": ["UPI_PAYOUT"],
     "paymentFlowTypes": ["PAYOUT"]
   }
 ]

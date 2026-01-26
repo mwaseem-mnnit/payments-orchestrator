@@ -12,7 +12,7 @@ export interface GatewayRefRepository {
         gatewayId: string
     ): Promise<GatewayRef | null>;
 
-    save(gatewayRef: GatewayRef): Promise<void>;
+    save(gatewayRef: GatewayRef): Promise<GatewayRef>;
 
     update(gatewayRef: GatewayRef): Promise<void>;
 }

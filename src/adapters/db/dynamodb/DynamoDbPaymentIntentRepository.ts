@@ -1,7 +1,6 @@
 import {
     ConditionalCheckFailedException,
     DynamoDBClient,
-    GetItemCommand,
     PutItemCommand,
     QueryCommand
 } from "@aws-sdk/client-dynamodb";
@@ -41,10 +40,14 @@ interface PaymentIntentDataModel {
 export class DynamoDbPaymentIntentRepository
     implements PaymentIntentRepository
 {
+    private static readonly TRANSACTION_ID_GSI_NAME = "GSI_transaction_id";
+    private static readonly USER_IDENTIFIER_GSI_NAME = "GSI_user_identifier";
+    private static readonly GATEWAY_TRANSACTION_ID_GSI_NAME = "GSI_gateway_transaction";
+    private static readonly PAYMENT_METHOD_GSI_NAME = "GSI_payment_method";
+
     constructor(
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
-        private readonly gsiName: string,
         private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
@@ -52,22 +55,24 @@ export class DynamoDbPaymentIntentRepository
     async findByTransactionId(
         transactionId: string
     ): Promise<PaymentIntent | null> {
-        const command = new GetItemCommand({
+        const command = new QueryCommand({
             TableName: this.tableName,
-            Key: marshall({
-                transaction_id: transactionId,
+            IndexName: DynamoDbPaymentIntentRepository.TRANSACTION_ID_GSI_NAME,
+            KeyConditionExpression: "transaction_id_gsi = :transactionId",
+            ExpressionAttributeValues: marshall({
+                ":transactionId": transactionId,
             }),
-            ConsistentRead: true,
+            Limit: 1,
         });
 
         try {
             const response = await this.dynamoDbClient.send(command);
 
-            if (!response.Item) {
+            if (!response.Items || response.Items.length === 0) {
                 return null;
             }
 
-            const dataModel = unmarshall(response.Item) as PaymentIntentDataModel;
+            const dataModel = unmarshall(response.Items[0]) as PaymentIntentDataModel;
             return this.toDomain(dataModel);
         } catch (error) {
             this.logger.error(
@@ -76,6 +81,7 @@ export class DynamoDbPaymentIntentRepository
                 {
                     transactionId,
                     tableName: this.tableName,
+                    gsiName: DynamoDbPaymentIntentRepository.TRANSACTION_ID_GSI_NAME,
                     component: "DynamoDbPaymentIntentRepository",
                 }
             );
@@ -94,7 +100,7 @@ export class DynamoDbPaymentIntentRepository
         // payee_reference. We then filter results to include items where
         // the user appears as either payer or payee to ensure completeness.
 
-        const keyConditionExpression = "user_identifier = :userIdentifier";
+        const keyConditionExpression = "user_identifier_gsi = :userIdentifier";
         const expressionAttributeValues: Record<string, any> = {
             ":userIdentifier": query.userIdentifier,
         };
@@ -142,7 +148,7 @@ export class DynamoDbPaymentIntentRepository
 
         const command = new QueryCommand({
             TableName: this.tableName,
-            IndexName: this.gsiName,
+            IndexName: DynamoDbPaymentIntentRepository.USER_IDENTIFIER_GSI_NAME,
             KeyConditionExpression: keyConditionExpression,
             FilterExpression: filterExpressions.join(" AND "),
             ExpressionAttributeValues: marshall(expressionAttributeValues),
@@ -165,7 +171,7 @@ export class DynamoDbPaymentIntentRepository
                 {
                     userIdentifier: query.userIdentifier,
                     tableName: this.tableName,
-                    gsiName: this.gsiName,
+                    gsiName: DynamoDbPaymentIntentRepository.USER_IDENTIFIER_GSI_NAME,
                     component: "DynamoDbPaymentIntentRepository",
                 }
             );
@@ -296,7 +302,9 @@ export class DynamoDbPaymentIntentRepository
 
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
             ConditionExpression: "attribute_not_exists(transaction_id)",
         });
 
@@ -328,7 +336,9 @@ export class DynamoDbPaymentIntentRepository
 
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
         });
 
         try {

@@ -1,7 +1,7 @@
 [
   {
     "ruleId": "UPI_PAYTM_IN_PAYIN_001",
-    "methodTypeId": "UPI",
+    "methodTypeId": "UPI_PAYIN",
     "gatewayId": "PAYTM",
     "conditions": {
       "paymentFlow": "PAYIN",
@@ -19,7 +19,7 @@
   },
   {
     "ruleId": "UPI_PAYTM_IN_PAYOUT_001",
-    "methodTypeId": "UPI",
+    "methodTypeId": "UPI_PAYOUT",
     "gatewayId": "PAYTM",
     "conditions": {
       "paymentFlow": "PAYOUT",
@@ -37,7 +37,7 @@
   },
   {
     "ruleId": "UPI_RAZORPAY_IN_PAYIN_001",
-    "methodTypeId": "UPI",
+    "methodTypeId": "UPI_PAYIN",
     "gatewayId": "RAZORPAY",
     "conditions": {
       "paymentFlow": "PAYIN",
@@ -57,7 +57,7 @@
   },
   {
     "ruleId": "UPI_RAZORPAY_IN_PAYOUT_001",
-    "methodTypeId": "UPI",
+    "methodTypeId": "UPI_PAYOUT",
     "gatewayId": "RAZORPAY",
     "conditions": {
       "paymentFlow": "PAYOUT",

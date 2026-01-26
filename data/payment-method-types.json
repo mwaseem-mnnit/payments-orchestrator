@@ -1,9 +1,9 @@
 [
   {
-    "methodTypeId": "UPI",
+    "methodTypeId": "UPI_PAYIN",
     "displayName": "UPI",
     "status": "ACTIVE",
-    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "supportedFlows": ["PAYIN"],
     "allowedIdentifierTypes": ["UPI_VPA"],
     "supportsVariants": true,
     "identityRequirement": "NONE",
@@ -17,10 +17,28 @@
     }
   },
   {
-    "methodTypeId": "BANK_ACCOUNT",
+    "methodTypeId": "UPI_PAYOUT",
+    "displayName": "UPI",
+    "status": "ACTIVE",
+    "supportedFlows": ["PAYOUT"],
+    "allowedIdentifierTypes": ["UPI_VPA"],
+    "supportsVariants": true,
+    "identityRequirement": "REQUIRED",
+    "identityDefinition": {
+      "type": "DEFAULT",
+      "identifierTypes": ["UPI_VPA"]
+    },
+    "executionMode": "BACKEND_DRIVEN",
+    "metadata": {
+      "icon": "upi-icon.svg",
+      "description": "Unified Payments Interface"
+    }
+  },
+  {
+    "methodTypeId": "BANK_ACCOUNT_PAYOUT",
     "displayName": "Bank Account",
     "status": "ACTIVE",
-    "supportedFlows": ["PAYIN", "PAYOUT"],
+    "supportedFlows": ["PAYOUT"],
     "allowedIdentifierTypes": ["BANK_ACCOUNT", "IFSC"],
     "supportsVariants": true,
     "identityRequirement": "REQUIRED",

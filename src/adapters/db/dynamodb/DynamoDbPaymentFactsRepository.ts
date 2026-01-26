@@ -32,11 +32,12 @@ interface PaymentFactDataModel {
 }
 
 export class DynamoDbPaymentFactsRepository implements PaymentFactsRepository {
+    private static readonly TRANSACTION_GSI_NAME = "GSI_transaction";
+    private static readonly IDEMPOTENCY_GSI_NAME = "GSI_idempotency";
+
     constructor(
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
-        private readonly gsi1Name: string,
-        private readonly gsi2Name: string,
         private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
@@ -87,12 +88,11 @@ export class DynamoDbPaymentFactsRepository implements PaymentFactsRepository {
     ): Promise<ReadonlyArray<PaymentFact>> {
         const command = new QueryCommand({
             TableName: this.tableName,
-            IndexName: this.gsi1Name,
-            KeyConditionExpression: "transaction_id = :transactionId",
+            IndexName: DynamoDbPaymentFactsRepository.TRANSACTION_GSI_NAME,
+            KeyConditionExpression: "transaction_id_gsi = :transactionId",
             ExpressionAttributeValues: marshall({
                 ":transactionId": transactionId
             }),
-            ConsistentRead: true,
             ScanIndexForward: true
         });
 
@@ -134,12 +134,11 @@ export class DynamoDbPaymentFactsRepository implements PaymentFactsRepository {
     ): Promise<PaymentFact | null> {
         const command = new QueryCommand({
             TableName: this.tableName,
-            IndexName: this.gsi2Name,
-            KeyConditionExpression: "idempotency_key = :idempotencyKey",
+            IndexName: DynamoDbPaymentFactsRepository.IDEMPOTENCY_GSI_NAME,
+            KeyConditionExpression: "idempotency_key_gsi = :idempotencyKey",
             ExpressionAttributeValues: marshall({
                 ":idempotencyKey": idempotencyKey
             }),
-            ConsistentRead: true,
             Limit: 1
         });
 

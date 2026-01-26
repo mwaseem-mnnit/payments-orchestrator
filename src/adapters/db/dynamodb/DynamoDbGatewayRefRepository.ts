@@ -24,10 +24,11 @@ interface GatewayRefDataModel {
 }
 
 export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
+    private static readonly PAYMENT_METHOD_GSI_NAME = "GSI_payment_method";
+
     constructor(
         private readonly dynamoDbClient: DynamoDBClient,
         private readonly tableName: string,
-        private readonly gsi1Name: string,
         private readonly clock: Clock,
         private readonly logger: Logger
     ) {}
@@ -38,10 +39,10 @@ export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
     ): Promise<GatewayRef | null> {
         const command = new QueryCommand({
             TableName: this.tableName,
-            IndexName: this.gsi1Name,
+            IndexName: DynamoDbGatewayRefRepository.PAYMENT_METHOD_GSI_NAME,
             KeyConditionExpression:
-                "payment_method_id = :paymentMethodId AND gateway_id = :gatewayId",
-            FilterExpression: "#status = :status",
+                "payment_method_id_gsi = :paymentMethodId",
+            FilterExpression: "gateway_id = :gatewayId AND #status = :status",
             ExpressionAttributeValues: marshall({
                 ":paymentMethodId": paymentMethodId,
                 ":gatewayId": gatewayId,
@@ -63,21 +64,26 @@ export class DynamoDbGatewayRefRepository implements GatewayRefRepository {
         return this.toDomain(dataModel);
     }
 
-    async save(gatewayRef: GatewayRef): Promise<void> {
+    async save(gatewayRef: GatewayRef): Promise<GatewayRef> {
         const dataModel = this.toDataModel(gatewayRef);
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
         });
 
         await this.dynamoDbClient.send(command);
+        return gatewayRef;
     }
 
     async update(gatewayRef: GatewayRef): Promise<void> {
         const dataModel = this.toDataModel(gatewayRef);
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
         });
 
         await this.dynamoDbClient.send(command);

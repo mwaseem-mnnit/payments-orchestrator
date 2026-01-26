@@ -33,7 +33,9 @@ export class DynamoDbIdempotencyStore implements IdempotencyStore {
 
         const command = new PutItemCommand({
             TableName: this.tableName,
-            Item: marshall(dataModel),
+            Item: marshall(dataModel, {
+                removeUndefinedValues: true
+            }),
             ConditionExpression: "attribute_not_exists(idempotency_key)",
         });
 

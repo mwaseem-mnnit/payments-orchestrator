@@ -14,6 +14,7 @@ import {GatewayRef} from "../../../domain/gateway_ref/GatewayRef";
 import {IdentifierType} from "../../../domain/payment_method_type/PaymentMethodType";
 import {RazorpayCreatePayoutResponse, RazorpayHttpClient} from "./RazorpayHttpClient";
 import {PaymentIntent} from "../../../domain/payment_intent/PaymentIntent";
+import {PaymentMethod} from "../../../domain/payment_method/PaymentMethod";
 
 export class RazorpayGatewayAdapter implements PaymentGatewayPort {
 
@@ -70,44 +71,13 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
         const paymentIntent = request.paymentIntent;
         const paymentMethod = request.paymentMethod;
         const gatewayContext = request.context?.input;
-        const gatewayId = "RAZORPAY";
 
-        const existingGatewayRef = await this.resolveActiveGatewayRef(
-            paymentMethod.paymentMethodId,
-            gatewayId
-        );
-        if (existingGatewayRef) {
-            // GatewayRef is reused because gateway-side entities are long-lived and idempotent.
-            const payoutResponse = await this.executeRazorpayPayout(
-                paymentIntent,
-                existingGatewayRef.normalizedKey,
-                gatewayContext
-            );
-            return this.buildCreatePayoutResponse(payoutResponse);
-        }
+        let existingGatewayRef = await this.computeGatewayRef(paymentMethod, paymentIntent, gatewayContext);
 
-        const identifiers = this.extractBeneficiaryIdentifiers(paymentMethod);
-        const contactResponse = await this.createRazorpayContact(
-            paymentIntent,
-            paymentMethod,
-            identifiers,
-            gatewayContext
-        );
-        const fundAccountResponse = await this.createRazorpayFundAccount(
-            paymentMethod,
-            identifiers,
-            contactResponse.id,
-            gatewayContext
-        );
-        await this.createAndPersistGatewayRef(
-            paymentMethod.paymentMethodId,
-            gatewayId,
-            fundAccountResponse.id,
-            contactResponse.id
-        );
+        // GatewayRef is reused because gateway-side entities are long-lived and idempotent.
         const payoutResponse = await this.executeRazorpayPayout(
             paymentIntent,
-            fundAccountResponse.id,
+            existingGatewayRef.normalizedKey,
             gatewayContext
         );
         return this.buildCreatePayoutResponse(payoutResponse);
@@ -121,13 +91,43 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
         throw new Error("Not implemented");
     }
 
+    private async computeGatewayRef(
+        paymentMethod: PaymentMethod,
+        paymentIntent: PaymentIntent,
+        gatewayContext: Record<string, unknown> | undefined
+    ) {
+        let existingGatewayRef = await this.resolveActiveGatewayRef(
+            paymentMethod.paymentMethodId
+        );
+        if (!existingGatewayRef) {
+            const identifiers = this.extractBeneficiaryIdentifiers(paymentMethod);
+            const contactResponse = await this.createRazorpayContact(
+                paymentIntent,
+                paymentMethod,
+                identifiers,
+                gatewayContext
+            );
+            const fundAccountResponse = await this.createRazorpayFundAccount(
+                paymentMethod,
+                identifiers,
+                contactResponse.id,
+                gatewayContext
+            );
+            existingGatewayRef = await this.createAndPersistGatewayRef(
+                paymentMethod.paymentMethodId,
+                fundAccountResponse.id,
+                contactResponse.id
+            );
+        }
+        return existingGatewayRef;
+    }
+
     private async resolveActiveGatewayRef(
-        paymentMethodId: string,
-        gatewayId: string
+        paymentMethodId: string
     ): Promise<GatewayRef | null> {
         return this.gatewayRefRepository.findByPaymentMethodAndGateway(
             paymentMethodId,
-            gatewayId
+            this.gatewayId
         );
     }
 
@@ -217,18 +217,18 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
 
     private async createAndPersistGatewayRef(
         paymentMethodId: string,
-        gatewayId: string,
         fundAccountId: string,
         contactId: string
-    ): Promise<void> {
+    ): Promise<GatewayRef> {
         const now = this.clock.now();
         const gatewayRef = new GatewayRef(
             this.idGenerator.generate(),
             paymentMethodId,
-            gatewayId,
+            this.gatewayId,
             fundAccountId,
             {
                 contact_id: contactId,
+                fund_account_id: fundAccountId,
                 referenceType: "FUND_ACCOUNT"
             },
             "ACTIVE",
@@ -236,7 +236,7 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
             now
         );
 
-        await this.gatewayRefRepository.save(gatewayRef);
+        return await this.gatewayRefRepository.save(gatewayRef);
     }
 
     private async executeRazorpayPayout(
@@ -246,7 +246,7 @@ export class RazorpayGatewayAdapter implements PaymentGatewayPort {
     ): Promise<RazorpayCreatePayoutResponse> {
         // Fund account is not revalidated to avoid extra gateway calls and to preserve idempotency.
         return await this.razorpayHttpClient.createPayout({
-            account_number: paymentIntent.transactionId,
+            account_number: process.env.RAZORPAY_ACCOUNT_NUMBER!,
             fund_account_id: fundAccountId,
             amount: paymentIntent.amount,
             currency: paymentIntent.currency,

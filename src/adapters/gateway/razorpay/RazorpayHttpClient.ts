@@ -135,7 +135,7 @@ export class RazorpayHttpClient {
         try {
             const response = await this.httpClient.request<RazorpayCreateOrderResponse>({
                 method: "POST",
-                url: `${this.config.baseUrl}/orders`,
+                url: `${this.config.baseUrl}/v1/orders`,
                 headers: this.buildHeaders(),
                 body: request,
                 timeoutMs: this.config.timeoutMs,
@@ -169,7 +169,7 @@ export class RazorpayHttpClient {
         try {
             const response = await this.httpClient.request<RazorpayFetchOrderResponse>({
                 method: "GET",
-                url: `${this.config.baseUrl}/orders/${orderId}`,
+                url: `${this.config.baseUrl}/v1/orders/${orderId}`,
                 headers: this.buildHeaders(),
                 timeoutMs: this.config.timeoutMs,
             });
@@ -204,7 +204,7 @@ export class RazorpayHttpClient {
         try {
             const response = await this.httpClient.request<RazorpayCreatePayoutResponse>({
                 method: "POST",
-                url: `${this.config.baseUrl}/payouts`,
+                url: `${this.config.baseUrl}/v1/payouts`,
                 headers: this.buildHeaders(),
                 body: request,
                 timeoutMs: this.config.timeoutMs,
@@ -238,7 +238,7 @@ export class RazorpayHttpClient {
         try {
             const response = await this.httpClient.request<RazorpayFetchPaymentResponse>({
                 method: "GET",
-                url: `${this.config.baseUrl}/payments/${paymentId}`,
+                url: `${this.config.baseUrl}/v1/payments/${paymentId}`,
                 headers: this.buildHeaders(),
                 timeoutMs: this.config.timeoutMs,
             });
@@ -273,7 +273,7 @@ export class RazorpayHttpClient {
         try {
             const response = await this.httpClient.request<RazorpayCreatePayoutResponse>({
                 method: "GET",
-                url: `${this.config.baseUrl}/payouts/${payoutId}`,
+                url: `${this.config.baseUrl}/v1/payouts/${payoutId}`,
                 headers: this.buildHeaders(),
                 timeoutMs: this.config.timeoutMs,
             });
@@ -311,7 +311,7 @@ export class RazorpayHttpClient {
             const response =
                 await this.httpClient.request<RazorpayCreateContactResponse>({
                     method: "POST",
-                    url: `${this.config.baseUrl}/contacts`,
+                    url: `${this.config.baseUrl}/v1/contacts`,
                     headers: this.buildHeaders(),
                     body: request,
                     timeoutMs: this.config.timeoutMs,
@@ -348,7 +348,7 @@ export class RazorpayHttpClient {
             const response =
                 await this.httpClient.request<RazorpayCreateFundAccountResponse>({
                     method: "POST",
-                    url: `${this.config.baseUrl}/fund_accounts`,
+                    url: `${this.config.baseUrl}/v1/fund_accounts`,
                     headers: this.buildHeaders(),
                     body: request,
                     timeoutMs: this.config.timeoutMs,

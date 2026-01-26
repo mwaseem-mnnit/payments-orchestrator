@@ -58,7 +58,6 @@ export class ProductionBindings {
         const paymentIntentRepository = new DynamoDbPaymentIntentRepository(
             dynamoDbClient,
             process.env.PAYMENT_INTENTS_TABLE_NAME || "",
-            process.env.PAYMENT_INTENTS_GSI_NAME || "",
             clock,
             logger
         );
@@ -66,8 +65,6 @@ export class ProductionBindings {
         const paymentFactsRepository = new DynamoDbPaymentFactsRepository(
             dynamoDbClient,
             process.env.PAYMENT_FACTS_TABLE_NAME || "",
-            process.env.PAYMENT_FACTS_GSI1_NAME || "",
-            process.env.PAYMENT_FACTS_GSI2_NAME || "",
             clock,
             logger
         );
@@ -75,7 +72,6 @@ export class ProductionBindings {
         const paymentMethodRepository = new DynamoDbPaymentMethodRepository(
             dynamoDbClient,
             process.env.PAYMENT_METHODS_TABLE_NAME || "",
-            process.env.PAYMENT_METHODS_USER_LAST_USED_GSI_NAME || "",
             process.env.PAYMENT_METHOD_IDENTIFIERS_TABLE_NAME || "",
             clock,
             logger
@@ -84,7 +80,6 @@ export class ProductionBindings {
         const gatewayRefRepository = new DynamoDbGatewayRefRepository(
             dynamoDbClient,
             process.env.GATEWAY_REF_TABLE_NAME || "",
-            process.env.GATEWAY_REF_GSI_NAME || "",
             clock,
             logger
         );
@@ -125,7 +120,7 @@ export class ProductionBindings {
 
         const mappingRuleSnapshotStore = new InMemorySnapshotStore<MappingRule>();
         const mappingRuleSnapshotLoader = new JsonMappingRuleSnapshotLoader(
-            process.env.MAPPING_RULE_SNAPSHOT_FILE || "./data/mapping-rule.json"
+            process.env.MAPPING_RULE_SNAPSHOT_FILE || "./data/mapping-rules.json"
         );
         const mappingRuleRefreshIntervalMs = parseInt(
             process.env.MAPPING_RULE_REFRESH_INTERVAL_MS || "300000",
