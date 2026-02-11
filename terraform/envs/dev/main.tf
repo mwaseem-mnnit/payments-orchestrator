@@ -53,7 +53,7 @@ locals {
   )
 }
 
-module "dynamodb_irsa" {
+module "payment_orchestrator_irsa" {
   source = "../../modules/irsa"
 
   name_prefix = var.name_prefix
@@ -77,6 +77,89 @@ module "dynamodb_irsa" {
         "dynamodb:BatchWriteItem"
       ]
       resources = local.policy_resources
+    }
+  ]
+}
+
+module "alb_controller_irsa" {
+  source = "../../modules/irsa"
+
+  name_prefix = "${var.name_prefix}-alb-controller-v2"
+  tags        = var.tags
+
+  cluster_oidc_provider_arn = module.eks.oidc_provider_arn
+  cluster_oidc_provider_url = local.cluster_oidc_provider_url
+
+  namespace            = "kube-system"
+  service_account_name = "aws-load-balancer-controller"
+
+  policy_statements = [
+    {
+      effect = "Allow"
+      actions = [
+        "iam:CreateServiceLinkedRole",
+        "ec2:DescribeAccountAttributes",
+        "ec2:DescribeAddresses",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeVpcPeeringConnections",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeInstances",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeTags",
+        "ec2:GetCoipPoolUsage",
+        "ec2:DescribeCoipPools",
+        "ec2:DescribeRouteTables",
+        "ec2:GetSecurityGroupsForVpc",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeListenerCertificates",
+        "elasticloadbalancing:DescribeSSLPolicies",
+        "elasticloadbalancing:DescribeRules",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetGroupAttributes",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeTags"
+      ]
+      resources = ["*"]
+    },
+    {
+      effect = "Allow"
+      actions = [
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateTags",
+        "ec2:DeleteTags",
+        "ec2:DeleteSecurityGroup",
+        "elasticloadbalancing:AddTags",
+        "elasticloadbalancing:RemoveTags",
+        "elasticloadbalancing:CreateLoadBalancer",
+        "elasticloadbalancing:CreateTargetGroup",
+        "elasticloadbalancing:CreateListener",
+        "elasticloadbalancing:DeleteListener",
+        "elasticloadbalancing:CreateRule",
+        "elasticloadbalancing:DeleteRule",
+        "elasticloadbalancing:ModifyLoadBalancerAttributes",
+        "elasticloadbalancing:SetIpAddressType",
+        "elasticloadbalancing:SetSecurityGroups",
+        "elasticloadbalancing:SetSubnets",
+        "elasticloadbalancing:DeleteLoadBalancer",
+        "elasticloadbalancing:ModifyTargetGroup",
+        "elasticloadbalancing:ModifyTargetGroupAttributes",
+        "elasticloadbalancing:DeleteTargetGroup",
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:SetWebAcl",
+        "elasticloadbalancing:ModifyListener",
+        "elasticloadbalancing:AddListenerCertificates",
+        "elasticloadbalancing:RemoveListenerCertificates",
+        "elasticloadbalancing:ModifyRule"
+      ]
+      resources = ["*"]
     }
   ]
 }

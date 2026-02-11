@@ -1,0 +1,28 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-orchestrator
+  namespace: default
+  labels:
+    app: payment-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-orchestrator
+  template:
+    metadata:
+      labels:
+        app: payment-orchestrator
+    spec:
+      serviceAccountName: payment-orchestrator
+      containers:
+        - name: payment-orchestrator
+          image: 156876769023.dkr.ecr.us-east-1.amazonaws.com/payment-orchestrator:dev
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: payment-orchestrator-config
+            - secretRef:
+                name: payment-orchestrator-secrets

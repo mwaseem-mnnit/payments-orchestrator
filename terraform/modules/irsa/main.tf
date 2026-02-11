@@ -22,15 +22,24 @@ resource "aws_iam_role" "this" {
 }
 
 resource "aws_iam_policy" "this" {
+  count = length(var.policy_statements) > 0 ? 1 : 0
+
   name = "${var.name_prefix}-irsa-policy"
   policy = jsonencode({
     Version   = "2012-10-17"
-    Statement = var.policy_statements
+    Statement = [
+      for stmt in var.policy_statements : {
+        Effect   = stmt.effect
+        Action   = stmt.actions
+        Resource = stmt.resources
+      }
+    ]
   })
-  tags = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "this" {
+  count = length(var.policy_statements) > 0 ? 1 : 0
   role       = aws_iam_role.this.name
-  policy_arn = aws_iam_policy.this.arn
+  policy_arn = aws_iam_policy.this[0].arn
 }
+

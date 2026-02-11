@@ -26,10 +26,12 @@ endpoint_private_access = false
 node_groups = {
   default = {
     instance_types = ["t3.micro"]
-    desired_size   = 1
+    desired_size   = 2
     min_size       = 1
-    max_size       = 1
+    max_size       = 3
     disk_size      = 20
-    capacity_type  = "SPOT"
+    capacity_type  = "ON_DEMAND"
   }
 }
+
+enable_pitr = true

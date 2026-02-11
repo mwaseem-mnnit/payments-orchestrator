@@ -52,8 +52,6 @@ variable "policy_statements" {
     actions   = list(string)
     resources = list(string)
   }))
-  validation {
-    condition     = (length(var.policy_statements) > 0)
-    error_message = "policy_statements must include at least one statement."
-  }
+  default = []
 }
+

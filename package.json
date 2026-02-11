@@ -2,7 +2,6 @@
   "name": "payments-orchestrator",
   "version": "1.0.0",
   "description": "Payments Orchestrator - Hexagonal Architecture Backend Service",
-  "type": "module",
   "main": "dist/index.js",
   "engines": {
     "node": ">=20.0.0"
@@ -27,9 +26,9 @@
     "typescript": "^5.3.3"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p .",
     "dev": "tsx watch src/bootstrap/index.ts",
-    "start": "node dist/index.js",
+    "start": "node dist/bootstrap/index.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "type-check": "tsc --noEmit"

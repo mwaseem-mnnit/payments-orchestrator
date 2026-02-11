@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payment-orchestrator
+  namespace: default  # Configurable: change to target namespace
+  annotations:
+    # Required: Replace with IAM role ARN from Terraform output
+    # Example: terraform output -raw irsa_role_arn
+    eks.amazonaws.com/role-arn: "arn:aws:iam::156876769023:role/env-dev-irsa-role"
+
+
+automountServiceAccountToken: true

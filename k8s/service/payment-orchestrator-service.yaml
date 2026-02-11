@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-orchestrator
+  namespace: default
+  labels:
+    app: payment-orchestrator
+  annotations:
+    description: "Internal ClusterIP service for payment-orchestrator."
+spec:
+  # Internal service for in-cluster access; intended for ingress routing.
+  type: ClusterIP
+  selector:
+    app: payment-orchestrator
+  ports:
+    # Expose HTTP for internal traffic; ingress will route here.
+    - name: http
+      port: 3000
+      targetPort: 3000

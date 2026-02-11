@@ -1,0 +1,16 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-orchestrator-config
+  namespace: default
+data:
+  AWS_REGION: "us-east-1"
+  IDEMPOTENCY_STORE_TABLE_NAME: "env-dev-idempotency"
+  PAYMENT_METHODS_TABLE_NAME: "env-dev-payment-method"
+  PAYMENT_METHOD_IDENTIFIERS_TABLE_NAME: "env-dev-payment-method-identifier"
+  PAYMENT_INTENTS_TABLE_NAME: "env-dev-payment-intent"
+  PAYMENT_FACTS_TABLE_NAME: "env-dev-payment-fact"
+  GATEWAY_REF_TABLE_NAME: "env-dev-gateway-ref"
+  RAZORPAY_BASE_URL: "https://api.razorpay.com"
+  RAZORPAY_ACCOUNT_NUMBER: "2323230033623339"
